@@ -1,13 +1,8 @@
 import * as React from "react"
 import {
-  // Keep only necessary icons
-  IconChartBar,
-  IconDatabase,
-  // IconHelp,
+  IconTable,
   IconInnerShadowTop,
-  IconReport,
-  // IconSearch,
-  // IconSettings,
+  IconFileAnalytics, IconChartScatter, IconChartDots,
 } from "@tabler/icons-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -35,22 +30,22 @@ const sidebarData = {
     {
       title: "Datasets",
       url: "/", // Root route for datasets
-      icon: IconDatabase,
+      icon: IconTable,
     },
     {
       title: "Exploration",
       url: "/exploration",
-      icon: IconChartBar,
+      icon: IconChartDots,
     },
     {
       title: "Sampling",
       url: "/sampling",
-      icon: IconReport,
+      icon: IconChartScatter,
     },
     {
       title: "Outputs",
       url: "/outputs",
-      icon: IconReport,
+      icon: IconFileAnalytics,
     },
   ],
   // Bottom part of nav bar (Settings, Get Help, Search)

@@ -1,7 +1,10 @@
 import { DatasetsDisplay } from "@/components/datasets-display"
+import { PageTransition } from "@/components/page-transition"
 
 export function DatasetsPage() {
   return (
-    <DatasetsDisplay />
+    <PageTransition>
+      <DatasetsDisplay />
+    </PageTransition>
   )
 }
