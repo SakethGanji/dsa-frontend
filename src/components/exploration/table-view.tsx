@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { 
   Table, 
@@ -52,6 +52,7 @@ export default function TableView({ onNext, onPrevious, datasetId }: TableViewPr
   const [activeView, setActiveView] = useState("table")
   const [searchTerm, setSearchTerm] = useState("")
   const [rowLimit, setRowLimit] = useState(10)
+  const [selectedVersion, setSelectedVersion] = useState<number | null>(null)
 
   // Fetch dataset details
   const { data: dataset, isLoading: isLoadingDataset } = useQuery({
@@ -68,57 +69,130 @@ export default function TableView({ onNext, onPrevious, datasetId }: TableViewPr
     enabled: !!datasetId
   })
 
-  // Generate mock table data based on the dataset
-  const generateMockData = (dataset: any) => {
-    if (!dataset) return []
+  // Fetch dataset versions
+  const { data: versions, isLoading: isLoadingVersions } = useQuery({
+    queryKey: ["dataset-versions", datasetId],
+    queryFn: async () => {
+      if (!datasetId) return []
+      try {
+        return await datasetsApi.getDatasetVersions(Number(datasetId))
+      } catch (error) {
+        console.error("Error fetching dataset versions:", error)
+        return []
+      }
+    },
+    enabled: !!datasetId
+  })
+  
+  // Set the selected version to the current version when dataset loads
+  useEffect(() => {
+    if (dataset && !selectedVersion) {
+      setSelectedVersion(dataset.current_version)
+    }
+  }, [dataset, selectedVersion])
 
-    // Generate columns based on dataset type
-    let columns = []
+  // Fetch dataset version data
+  const { data: versionData, isLoading: isLoadingData } = useQuery({
+    queryKey: ["dataset-version-data", datasetId, selectedVersion, rowLimit],
+    queryFn: async () => {
+      if (!datasetId || !selectedVersion) return null
+      try {
+        console.log(`Fetching data for dataset ${datasetId}, version ${selectedVersion}`)
+        const result = await datasetsApi.getDatasetVersionData(
+          Number(datasetId), 
+          selectedVersion, 
+          { limit: rowLimit, offset: 0 }
+        )
+        console.log("API response data:", result)
+        return result
+      } catch (error) {
+        console.error("Error fetching dataset version data:", error)
+        return null
+      }
+    },
+    enabled: !!datasetId && !!selectedVersion
+  })
+
+  // Data processing functions
+  const processData = (data: any) => {
+    console.log("Processing data:", data)
     
-    // This would be based on actual dataset schema
-    // For now we'll generate mock columns
-    if (dataset.file_type === 'csv') {
-      columns = ['id', 'name', 'category', 'price', 'quantity', 'date']
-    } else {
-      columns = ['id', 'title', 'description', 'status', 'created_at']
+    if (!data) {
+      console.log("No data to process")
+      return { columns: [], rows: [] }
     }
-
-    // Generate rows
-    const rows = []
-    for (let i = 0; i < 100; i++) {
-      const row: Record<string, any> = {}
-      columns.forEach(col => {
-        if (col === 'id') row[col] = i + 1
-        else if (col === 'name' || col === 'title') row[col] = `Sample ${col} ${i}`
-        else if (col === 'category') row[col] = ['Electronics', 'Clothing', 'Home', 'Food'][i % 4]
-        else if (col === 'price') row[col] = Math.round(Math.random() * 1000) / 10
-        else if (col === 'quantity') row[col] = Math.floor(Math.random() * 100)
-        else if (col === 'date' || col === 'created_at') row[col] = new Date(2025, 0, i % 28 + 1).toISOString().split('T')[0]
-        else if (col === 'description') row[col] = `Description for item ${i}`
-        else if (col === 'status') row[col] = ['Active', 'Pending', 'Completed', 'Cancelled'][i % 4]
-        else row[col] = `Value ${i}`
-      })
-      rows.push(row)
+    
+    // Handle Netflix dataset API format with headers and rows
+    if (data.headers && data.rows) {
+      console.log("Found headers and rows properties (Netflix dataset format)")
+      return { 
+        columns: data.headers,
+        rows: data.rows 
+      }
     }
-
-    return { columns, rows }
+    
+    // Handle common API response formats
+    if (data.columns && data.data) {
+      console.log("Found columns and data properties")
+      return { 
+        columns: data.columns,
+        rows: data.data 
+      }
+    }
+    
+    // If response has a data property that's an array
+    if (data.data && Array.isArray(data.data)) {
+      console.log("Found data array property")
+      if (data.data.length === 0) return { columns: [], rows: [] }
+      
+      const columns = Object.keys(data.data[0] || {})
+      return { columns, rows: data.data }
+    }
+    
+    // If data is an array of objects, extract columns from keys of first item
+    if (Array.isArray(data)) {
+      console.log("Data is an array")
+      if (data.length === 0) return { columns: [], rows: [] }
+      
+      const columns = Object.keys(data[0] || {})
+      return { columns, rows: data }
+    }
+    
+    // Try to handle object with arbitrary structure - look for array properties
+    if (typeof data === 'object' && data !== null) {
+      console.log("Data is an object, looking for array properties")
+      for (const key in data) {
+        if (Array.isArray(data[key]) && data[key].length > 0) {
+          console.log(`Found array in property ${key}`)
+          const columns = Object.keys(data[key][0] || {})
+          return { columns, rows: data[key] }
+        }
+      }
+    }
+    
+    // Fallback for other formats
+    console.log("Could not determine data format, using fallback")
+    return { columns: [], rows: [] }
   }
 
-  const mockData = generateMockData(dataset)
-
+  const processedData = processData(versionData)
+  console.log("Processed data:", processedData)
+  
   // Filter data based on search term
-  const filteredData = mockData.rows?.filter(row => 
-    Object.values(row).some(value => 
-      String(value).toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  ) || []
+  const filteredData = processedData.rows?.filter(row => {
+    if (!row) return false
+    return Object.values(row).some(value => {
+      if (value === null || value === undefined) return false
+      return String(value).toLowerCase().includes(searchTerm.toLowerCase())
+    })
+  }) || []
 
   // Paginated data
   const paginatedData = filteredData.slice(0, rowLimit)
 
   return (
     <div className="p-6 space-y-6">
-      {isLoadingDataset ? (
+      {isLoadingDataset || isLoadingVersions ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
           <span className="ml-2 text-gray-500 dark:text-gray-400">Loading dataset...</span>
@@ -143,14 +217,33 @@ export default function TableView({ onNext, onPrevious, datasetId }: TableViewPr
             <CardContent>
               <div className="flex flex-wrap gap-3 text-sm text-gray-500 dark:text-gray-400">
                 <div>
-                  <span className="font-medium">Type:</span> {dataset.file_type.toUpperCase()}
+                  <span className="font-medium">Type:</span> {dataset.file_type ? dataset.file_type.toUpperCase() : 'UNKNOWN'}
                 </div>
                 <div>
-                  <span className="font-medium">Size:</span> {(dataset.file_size / 1024).toFixed(1)}KB
+                  <span className="font-medium">Size:</span> {dataset.file_size ? `${(dataset.file_size / 1024).toFixed(1)} KB` : 'UNKNOWN'}
                 </div>
-                <div>
-                  <span className="font-medium">Version:</span> {dataset.current_version}
+                
+                {/* Version selector */}
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Version:</span>
+                  <Select 
+                    value={selectedVersion?.toString() || ''} 
+                    onValueChange={(value) => setSelectedVersion(Number(value))}
+                  >
+                    <SelectTrigger className="h-8 w-[120px]">
+                      <SelectValue placeholder="Select version" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {versions?.map((version: any) => (
+                        <SelectItem key={version.id} value={version.id.toString()}>
+                          v{version.version_number}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+                
+                
                 {dataset.tags && dataset.tags.length > 0 && (
                   <div className="flex items-center">
                     <span className="font-medium mr-2">Tags:</span>
@@ -221,41 +314,60 @@ export default function TableView({ onNext, onPrevious, datasetId }: TableViewPr
                   </div>
                 </div>
 
-                <div className="rounded-md border border-gray-200 dark:border-gray-700">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        {mockData.columns?.map((column) => (
-                          <TableHead key={column} className="whitespace-nowrap font-medium">
-                            {column.charAt(0).toUpperCase() + column.slice(1).replace('_', ' ')}
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {paginatedData.length > 0 ? (
-                        paginatedData.map((row, rowIndex) => (
-                          <TableRow key={rowIndex}>
-                            {mockData.columns?.map((column) => (
-                              <TableCell key={`${rowIndex}-${column}`} className="py-2">
-                                {String(row[column])}
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                        ))
-                      ) : (
+                {isLoadingData ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
+                    <span className="ml-2 text-gray-500 dark:text-gray-400">Loading table data...</span>
+                  </div>
+                ) : !selectedVersion ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <p className="text-lg font-semibold text-gray-700 dark:text-gray-300">Select a Version</p>
+                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                      Please select a dataset version to view the data
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-md border border-gray-200 dark:border-gray-700">
+                    <Table>
+                      <TableHeader>
                         <TableRow>
-                          <TableCell 
-                            colSpan={mockData.columns?.length || 1} 
-                            className="h-24 text-center"
-                          >
-                            No results.
-                          </TableCell>
+                          {processedData.columns?.map((column: string) => (
+                            <TableHead key={column} className="whitespace-nowrap font-medium">
+                              {column.charAt(0).toUpperCase() + column.slice(1).replace('_', ' ')}
+                            </TableHead>
+                          ))}
                         </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
+                      </TableHeader>
+                      <TableBody>
+                        {paginatedData.length > 0 ? (
+                          paginatedData.map((row: any, rowIndex: number) => (
+                            <TableRow key={rowIndex}>
+                              {processedData.columns?.map((column: string) => (
+                                <TableCell key={`${rowIndex}-${column}`} className="py-2">
+                                  {row[column] !== null && row[column] !== undefined ? String(row[column]) : ''}
+                                </TableCell>
+                              ))}
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell 
+                              colSpan={processedData.columns?.length || 1} 
+                              className="h-24 text-center"
+                            >
+                              <div className="flex flex-col items-center justify-center">
+                                <p className="font-medium text-gray-700 dark:text-gray-300">No data available</p>
+                                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                  Either no data was returned from the API or the data format is not recognized
+                                </p>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -358,7 +470,30 @@ export default function TableView({ onNext, onPrevious, datasetId }: TableViewPr
           </Tabs>
           
           <div className="flex justify-end">
-            <Button onClick={onNext} className="bg-violet-600 hover:bg-violet-700 text-white">
+            <Button 
+              onClick={() => {
+                if (datasetId && selectedVersion) {
+                  // Request exploration profile before proceeding to analysis
+                  datasetsApi.exploreDataset(Number(datasetId), selectedVersion, {
+                    format: "html",
+                    run_profiling: true
+                  })
+                  .then(() => {
+                    console.log("Exploration profile generated successfully");
+                    onNext();
+                  })
+                  .catch(error => {
+                    console.error("Error generating exploration profile:", error);
+                    // Proceed anyway in case the backend already has the profile
+                    onNext();
+                  });
+                } else {
+                  onNext();
+                }
+              }} 
+              className="bg-violet-600 hover:bg-violet-700 text-white"
+              disabled={!selectedVersion}
+            >
               Proceed to Analysis
             </Button>
           </div>

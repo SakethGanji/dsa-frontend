@@ -76,4 +76,31 @@ export const datasetsApi = {
     apiClient<DatasetResponse>({
       endpoint: `/datasets/${id}`,
     }),
+    
+  // Get versions for a dataset
+  getDatasetVersions: (datasetId: number) => 
+    apiClient<any[]>({
+      endpoint: `/datasets/${datasetId}/versions`,
+    }),
+    
+  // Get data from a specific dataset version
+  getDatasetVersionData: (datasetId: number, versionId: number, params?: { 
+    limit?: number,
+    offset?: number 
+  }) => 
+    apiClient<any>({
+      endpoint: `/datasets/${datasetId}/versions/${versionId}/data`,
+      params,
+    }),
+    
+  // Generate dataset exploration with pandas profiling
+  exploreDataset: (datasetId: number, versionId: number, options: { 
+    format: string, 
+    run_profiling: boolean 
+  }) => 
+    apiClient<any>({
+      endpoint: `/explore/${datasetId}/${versionId}`,
+      method: 'POST',
+      data: options,
+    }),
 };

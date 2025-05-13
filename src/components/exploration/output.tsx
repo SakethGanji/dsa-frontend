@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { BarChart, PieChart, LineChart, Download, Share2 } from "lucide-react"
+import { BarChart, PieChart, LineChart, Download, Share2, Loader2 } from "lucide-react"
 import { 
   Card, 
   CardContent, 
@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { useQuery } from "@tanstack/react-query"
 import { datasetsApi } from "@/lib/api"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface OutputProps {
   onPrevious: () => void
@@ -21,7 +22,9 @@ interface OutputProps {
 }
 
 export default function Output({ onPrevious, source, sourceId }: OutputProps) {
+  const [activeTab, setActiveTab] = useState("visualization")
   const [activeChart, setActiveChart] = useState("bar")
+  const [profileHtml, setProfileHtml] = useState<string | null>(null)
 
   // Fetch dataset if source is dataset
   const { data: dataset } = useQuery({
@@ -37,6 +40,34 @@ export default function Output({ onPrevious, source, sourceId }: OutputProps) {
     },
     enabled: !!sourceId && source === "dataset"
   })
+
+  // Fetch dataset exploration profile
+  const { data: explorationData, isLoading: isLoadingProfile } = useQuery({
+    queryKey: ["dataset-profile", sourceId, dataset?.current_version],
+    queryFn: async () => {
+      if (!sourceId || !dataset?.current_version) return null
+      try {
+        // Try fetching the existing profile first
+        const result = await datasetsApi.exploreDataset(
+          Number(sourceId), 
+          dataset.current_version, 
+          { format: "html", run_profiling: true }
+        )
+        return result
+      } catch (error) {
+        console.error("Error fetching profile data:", error)
+        return null
+      }
+    },
+    enabled: !!sourceId && !!dataset?.current_version
+  })
+
+  // Set profile HTML when data is available
+  useEffect(() => {
+    if (explorationData?.profile) {
+      setProfileHtml(explorationData.profile)
+    }
+  }, [explorationData])
 
   // Get title based on source
   const getTitle = () => {
@@ -64,131 +95,174 @@ export default function Output({ onPrevious, source, sourceId }: OutputProps) {
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-3">
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => setActiveChart("bar")}
-          className={`inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium ${
-            activeChart === "bar"
-              ? "bg-violet-100 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300"
-              : "border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
-          }`}
-        >
-          <BarChart className="mr-2 h-4 w-4" />
-          Bar Chart
-        </motion.button>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-[400px] grid-cols-2">
+          <TabsTrigger value="visualization">Visualizations</TabsTrigger>
+          <TabsTrigger value="profile">Pandas Profiling</TabsTrigger>
+        </TabsList>
 
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => setActiveChart("pie")}
-          className={`inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium ${
-            activeChart === "pie"
-              ? "bg-violet-100 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300"
-              : "border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
-          }`}
-        >
-          <PieChart className="mr-2 h-4 w-4" />
-          Pie Chart
-        </motion.button>
+        <TabsContent value="visualization" className="mt-6">
+          <div className="flex flex-wrap gap-3">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setActiveChart("bar")}
+              className={`inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium ${
+                activeChart === "bar"
+                  ? "bg-violet-100 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300"
+                  : "border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+              }`}
+            >
+              <BarChart className="mr-2 h-4 w-4" />
+              Bar Chart
+            </motion.button>
 
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => setActiveChart("line")}
-          className={`inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium ${
-            activeChart === "line"
-              ? "bg-violet-100 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300"
-              : "border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
-          }`}
-        >
-          <LineChart className="mr-2 h-4 w-4" />
-          Line Chart
-        </motion.button>
-      </div>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setActiveChart("pie")}
+              className={`inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium ${
+                activeChart === "pie"
+                  ? "bg-violet-100 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300"
+                  : "border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+              }`}
+            >
+              <PieChart className="mr-2 h-4 w-4" />
+              Pie Chart
+            </motion.button>
 
-      <Card className="border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
-        <CardContent className="p-6">
-          <AnimatedChart type={activeChart} />
-        </CardContent>
-      </Card>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setActiveChart("line")}
+              className={`inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium ${
+                activeChart === "line"
+                  ? "bg-violet-100 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300"
+                  : "border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+              }`}
+            >
+              <LineChart className="mr-2 h-4 w-4" />
+              Line Chart
+            </motion.button>
+          </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card className="border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg font-medium text-gray-800 dark:text-gray-100">Summary Statistics</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-500 dark:text-gray-400">Total Records</span>
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">1,245</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-500 dark:text-gray-400">Average Value</span>
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">$187.34</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-500 dark:text-gray-400">Highest Value</span>
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">$499.99</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-500 dark:text-gray-400">Lowest Value</span>
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">$29.99</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-500 dark:text-gray-400">Standard Deviation</span>
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">$78.21</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-500 dark:text-gray-400">Median Value</span>
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">$142.50</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+          <Card className="border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm mt-4">
+            <CardContent className="p-6">
+              <AnimatedChart type={activeChart} />
+            </CardContent>
+          </Card>
 
-        <Card className="border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg font-medium text-gray-800 dark:text-gray-100">Key Insights</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <ul className="space-y-2">
-              <li className="flex items-start">
-                <span className="mr-2 flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 text-xs">
-                  1
-                </span>
-                <span className="text-sm text-gray-600 dark:text-gray-300">
-                  {source === "dataset" && dataset?.file_type === "csv" 
-                    ? "The dataset shows strong seasonality in the time series pattern"
-                    : "Electronics category has the highest average price"}
-                </span>
-              </li>
-              <li className="flex items-start">
-                <span className="mr-2 flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 text-xs">
-                  2
-                </span>
-                <span className="text-sm text-gray-600 dark:text-gray-300">
-                  {source === "dataset" && dataset?.name.includes("titanic")
-                    ? "Survival rates were significantly higher for women and children" 
-                    : "20% of products are low in stock"}
-                </span>
-              </li>
-              <li className="flex items-start">
-                <span className="mr-2 flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 text-xs">
-                  3
-                </span>
-                <span className="text-sm text-gray-600 dark:text-gray-300">
-                  {source === "dataset" && dataset?.name.includes("netflix")
-                    ? "Content production increased significantly after 2015"
-                    : "Clothing has the highest inventory count"}
-                </span>
-              </li>
-            </ul>
-          </CardContent>
-        </Card>
-      </div>
+          <div className="grid gap-4 md:grid-cols-2 mt-6">
+            <Card className="border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg font-medium text-gray-800 dark:text-gray-100">Summary Statistics</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Total Records</span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">1,245</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Average Value</span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">$187.34</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Highest Value</span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">$499.99</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Lowest Value</span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">$29.99</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Standard Deviation</span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">$78.21</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Median Value</span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">$142.50</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg font-medium text-gray-800 dark:text-gray-100">Key Insights</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <ul className="space-y-2">
+                  <li className="flex items-start">
+                    <span className="mr-2 flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 text-xs">
+                      1
+                    </span>
+                    <span className="text-sm text-gray-600 dark:text-gray-300">
+                      {source === "dataset" && dataset?.file_type === "csv" 
+                        ? "The dataset shows strong seasonality in the time series pattern"
+                        : "Electronics category has the highest average price"}
+                    </span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="mr-2 flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 text-xs">
+                      2
+                    </span>
+                    <span className="text-sm text-gray-600 dark:text-gray-300">
+                      {source === "dataset" && dataset?.name?.includes("titanic")
+                        ? "Survival rates were significantly higher for women and children" 
+                        : "20% of products are low in stock"}
+                    </span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="mr-2 flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 text-xs">
+                      3
+                    </span>
+                    <span className="text-sm text-gray-600 dark:text-gray-300">
+                      {source === "dataset" && dataset?.name?.includes("netflix")
+                        ? "Content production increased significantly after 2015"
+                        : "Clothing has the highest inventory count"}
+                    </span>
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="profile" className="mt-6">
+          <Card className="border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+            <CardContent className="p-6 min-h-[600px]">
+              {isLoadingProfile ? (
+                <div className="flex items-center justify-center h-full py-20">
+                  <div className="flex flex-col items-center">
+                    <Loader2 className="h-12 w-12 animate-spin text-violet-500 mb-4" />
+                    <p className="text-lg font-medium text-gray-700 dark:text-gray-300">
+                      Generating profile report...
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                      This may take a moment depending on the size of your dataset
+                    </p>
+                  </div>
+                </div>
+              ) : profileHtml ? (
+                <div 
+                  className="profile-report-container h-full"
+                  dangerouslySetInnerHTML={{ __html: profileHtml }}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full py-20">
+                  <p className="text-lg font-medium text-gray-700 dark:text-gray-300">
+                    No profile data available
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                    Try regenerating the profile or select another dataset
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       <div className="flex flex-wrap gap-3 pt-4">
         <motion.button

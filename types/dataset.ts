@@ -22,6 +22,18 @@ export interface Tag {
     usage_count: number | null;
 }
 
+export interface DatasetVersion {
+    id: number;
+    dataset_id: number;
+    version_number: number;
+    created_at: string;
+    updated_at: string;
+    file_type: string;
+    file_size: number;
+    schema: any | null;
+    metadata: Record<string, any> | null;
+}
+
 export interface DatasetResponse {
     name: string;
     description: string;
@@ -32,7 +44,7 @@ export interface DatasetResponse {
     current_version: number;
     file_type: string;
     file_size: number;
-    versions: any | null; // Can be more specific if needed
+    versions: DatasetVersion[] | null;
     tags: Tag[];
 }
 
