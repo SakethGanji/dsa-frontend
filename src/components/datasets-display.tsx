@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Search, Filter, Grid, List } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Filter, Grid, List, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,127 +23,99 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+// Simplified toast hook for our demo
+const useToast = () => {
+    return {
+        toast: ({ title, description, variant }: { title: string; description?: string; variant?: string }) => {
+            console.log(`Toast: ${title} - ${description || ''}`);
+            // In a real app, this would show a toast notification
+        }
+    };
+};
+import { PaginationControls } from "@/components/pagination-controls";
 
-import { ExpandableDatasetCard } from "./expandable-dataset-card"; // Import the new component
-import type { Dataset } from "@/../types/dataset.ts";
-
-// Sample datasets array
-const datasets: Dataset[] = [
-    {
-        id: 1,
-        title: "Customer Transactions",
-        description: "Financial transaction data from 2022-2023, including customer IDs, purchase amounts, and dates.",
-        type: "CSV",
-        size: "2.4 MB",
-        lastUpdated: "2023-12-15", // format: "YYYY-MM-DD"
-        tags: ["financial", "transactions", "customers", "sales"],
-        downloads: 1245,
-        version: "1.2",
-        uploader: "Data Team",
-    },
-    {
-        id: 2,
-        title: "Product Inventory & Stock Levels Worldwide",
-        description: "Complete inventory with product details, SKUs, current stock levels across multiple warehouses.",
-        type: "JSON",
-        size: "4.7 MB",
-        lastUpdated: "2024-01-20",
-        tags: ["inventory", "products", "stock", "logistics"],
-        downloads: 876,
-        version: "2.0",
-        uploader: "Supply Chain Dept.",
-    },
-    {
-        id: 3,
-        title: "User Demographics Study Q1",
-        description: "Anonymized user demographic information including age, location, and preferences for market segmentation.",
-        type: "CSV",
-        size: "1.8 MB",
-        lastUpdated: "2024-02-05",
-        tags: ["users", "demographics", "research"],
-        downloads: 2134,
-        version: "1.0",
-        uploader: "Marketing Insights",
-    },
-    {
-        id: 4,
-        title: "Website Analytics",
-        description: "Page views, bounce rates, and user engagement metrics for the main corporate website.",
-        type: "JSON",
-        size: "3.2 MB",
-        lastUpdated: "2024-02-28",
-        tags: ["analytics", "web", "metrics"],
-        downloads: 1567,
-        version: "3.1",
-        uploader: "Web Team",
-    },
-    {
-        id: 5,
-        title: "Marketing Campaign Results",
-        description: "Performance metrics for all 2023 marketing campaigns, including ROI and reach.",
-        type: "Excel",
-        size: "5.1 MB",
-        lastUpdated: "2024-01-10",
-        tags: ["marketing", "campaigns", "performance"],
-        downloads: 932,
-        version: "1.5",
-        uploader: "Marketing Ops",
-    },
-    {
-        id: 6,
-        title: "Supply Chain Data",
-        description: "Logistics and supply chain performance indicators, shipment tracking, and delivery times.",
-        type: "CSV",
-        size: "3.9 MB",
-        lastUpdated: "2024-03-01",
-        tags: ["logistics", "supply chain", "shipments"],
-        downloads: 745,
-        version: "2.2",
-        uploader: "Logistics Team",
-    },
-];
-
+import { ExpandableDatasetCard } from "./expandable-dataset-card";
+import { usePaginatedDatasets } from "@/hooks/use-datasets";
+import type { DatasetInfo } from "../../types/dataset";
 
 export function DatasetsDisplay() {
     const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-    const [searchQuery, setSearchQuery] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const [searchInput, setSearchInput] = useState("");
+    const { toast } = useToast();
 
-    const filteredDatasets = datasets.filter(
-        (dataset) =>
-            dataset.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            dataset.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            dataset.tags.some((tag: string) => tag.toLowerCase().includes(searchQuery.toLowerCase())),
-    );
+    // Initialize dataset query with TanStack Query
+    const {
+        data,
+        isLoading,
+        isError,
+        error,
+        refetch,
+        search,
+        pagination,
+        filters,
+        setFilters,
+    } = usePaginatedDatasets({ 
+        limit: 10, 
+        offset: 0,
+        search: debouncedSearch
+    });
 
-    // Map the datasets to the format expected by the ExpandableDatasetCard component
-    const datasetInfos = filteredDatasets.map(dataset => ({
-        id: dataset.id,
-        name: dataset.title,
-        description: dataset.description,
-        version: dataset.version,
-        fileType: dataset.type,
-        fileSize: dataset.size,
-        lastUpdatedTimestamp: dataset.lastUpdated,
-        uploader: dataset.uploader,
-        tags: dataset.tags,
-    }));
+    // Debounce search input
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchInput);
+        }, 500);
+
+        return () => clearTimeout(timer);
+    }, [searchInput]);
+
+    // Handle search input changes
+    const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setSearchInput(e.target.value);
+    };
+
+    // Show error toast if fetching fails
+    useEffect(() => {
+        if (isError) {
+            // Safely extract error message
+            const errorMessage = error instanceof Error 
+                ? error.message 
+                : "Failed to load datasets. Please try again.";
+            
+            toast({
+                title: "Error loading datasets",
+                description: errorMessage,
+                variant: "destructive",
+            });
+        }
+    }, [isError, error, toast]);
+
+    // Extract datasets for the component
+    const datasetInfos = data?.datasetInfos || [];
 
     const handleDatasetView = (datasetId: number) => {
-        const dataset = datasets.find(d => d.id === datasetId);
-        console.log(`Viewing dataset: ${dataset?.title}`);
+        const dataset = datasetInfos.find(d => d.id === datasetId);
+        console.log(`Viewing dataset: ${dataset?.name}`);
         // Implement navigation or modal logic for viewing details
     };
 
     const handleDatasetDownload = (datasetId: number) => {
-        const dataset = datasets.find(d => d.id === datasetId);
-        console.log(`Downloading dataset: ${dataset?.title}`);
+        const dataset = datasetInfos.find(d => d.id === datasetId);
+        console.log(`Downloading dataset: ${dataset?.name}`);
         // Add actual download logic here
     };
 
     const handleDatasetSave = (datasetId: number) => {
-        const dataset = datasets.find(d => d.id === datasetId);
-        console.log(`Saving dataset: ${dataset?.title}`);
+        const dataset = datasetInfos.find(d => d.id === datasetId);
+        console.log(`Saving dataset: ${dataset?.name}`);
         // Implement save/bookmark logic
+    };
+
+    // Sort options handler
+    const handleSortChange = (value: string) => {
+        // In a real application, you would update the sort criteria in your query
+        console.log(`Sorting by: ${value}`);
     };
 
     return (
@@ -158,8 +130,8 @@ export function DatasetsDisplay() {
                         type="search"
                         placeholder="Search datasets..."
                         className="pl-8 w-full"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                        value={searchInput}
+                        onChange={handleSearchChange}
                     />
                 </div>
 
@@ -183,7 +155,7 @@ export function DatasetsDisplay() {
                         </DropdownMenuContent>
                     </DropdownMenu>
 
-                    <Select defaultValue="newest">
+                    <Select defaultValue="newest" onValueChange={handleSortChange}>
                         <SelectTrigger className="w-full sm:w-[180px]">
                             <SelectValue placeholder="Sort by" />
                         </SelectTrigger>
@@ -223,21 +195,57 @@ export function DatasetsDisplay() {
                 </div>
             </div>
 
-            {/* Using ExpandableDatasetCard for both grid and list views */}
-            <div className={viewMode === "list" ? "flex flex-col gap-4 max-w-4xl mx-auto" : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"}>
-                <ExpandableDatasetCard
-                    datasets={datasetInfos}
-                    onView={handleDatasetView}
-                    onDownload={handleDatasetDownload}
-                    onSave={handleDatasetSave}
-                    isList={viewMode === "list"}
-                />
-            </div>
-
-            {filteredDatasets.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-12">
-                    <p className="text-muted-foreground">No datasets found matching your search criteria.</p>
+            {/* Loading state */}
+            {isLoading ? (
+                <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <span className="ml-2 text-muted-foreground">Loading datasets...</span>
                 </div>
+            ) : isError ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                    <p className="text-destructive">Error loading datasets</p>
+                    <Button 
+                        variant="outline" 
+                        className="mt-4"
+                        onClick={() => refetch()}
+                    >
+                        Try Again
+                    </Button>
+                </div>
+            ) : (
+                <>
+                    {/* Dataset grid or list */}
+                    <div className={viewMode === "list" ? "flex flex-col gap-4 max-w-4xl mx-auto" : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"}>
+                        {datasetInfos.length > 0 ? (
+                            <ExpandableDatasetCard
+                                datasets={datasetInfos}
+                                onView={handleDatasetView}
+                                onDownload={handleDatasetDownload}
+                                onSave={handleDatasetSave}
+                                isList={viewMode === "list"}
+                            />
+                        ) : (
+                            <div className="flex flex-col items-center justify-center py-12 col-span-full">
+                                <p className="text-muted-foreground">No datasets found matching your search criteria.</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Pagination Controls */}
+                    {datasetInfos.length > 0 && (
+                        <PaginationControls
+                            currentPage={pagination.currentPage}
+                            totalPages={Math.max(pagination.totalPages || 1, 
+                                // Make sure we show at least 1 page even if totalPages is 0
+                                datasetInfos.length > 0 ? 1 : 0)}
+                            onPageChange={pagination.goToPage}
+                            pageSize={filters.limit || 10}
+                            onPageSizeChange={pagination.setPageSize}
+                            totalItems={data?.total}
+                            className="mt-8"
+                        />
+                    )}
+                </>
             )}
         </div>
     );
