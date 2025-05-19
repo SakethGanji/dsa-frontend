@@ -35,6 +35,20 @@ interface DatasetInfo {
     tags: string[]
 }
 
+// Define the detailed dataset information interface
+interface DetailedDatasetInfo {
+    id: number;
+    additionalDetails: {
+        rowCount: number;
+        columnCount: number;
+        createdAt: string;
+        lastAccessed: string;
+        format: string;
+        encoding: string;
+        validationStatus: string;
+    };
+}
+
 // Main component props
 interface ExpandableDatasetCardProps {
     datasets: DatasetInfo[]
@@ -403,16 +417,16 @@ const DatasetCard = ({
 // Close button icon component
 const CloseIcon = () => (
     <motion.svg
-        initial={{ opacity: 0, rotate: -90 }}
-        animate={{ opacity: 1, rotate: 0 }}
-        exit={{ opacity: 0, rotate: 90, transition: { duration: 0.1 } }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0, transition: { duration: 0.05 } }}
         xmlns="http://www.w3.org/2000/svg"
         width="24"
         height="24"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
-        strokeWidth="2.5"
+        strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
         className="h-4 w-4"
@@ -425,7 +439,7 @@ const CloseIcon = () => (
 
 // Function to fetch detailed dataset information
 // Replace this with your actual API call
-const fetchDetailedDataset = async (datasetId: number): Promise<any> => {
+const fetchDetailedDataset = async (datasetId: number): Promise<DetailedDatasetInfo> => {
     // This is a placeholder for your actual API call
     // Example:
     // return fetch(`/api/datasets/${datasetId}/details`).then(res => res.json());
@@ -458,7 +472,7 @@ export function ExpandableDatasetCard({
     isList = false,
 }: ExpandableDatasetCardProps) {
     const [active, setActive] = useState<DatasetInfo | null>(null)
-    const [detailData, setDetailData] = useState<any>(null)
+    const [detailData, setDetailData] = useState<DetailedDatasetInfo | null>(null) // Updated type
     const id = useId()
     const ref = useRef<HTMLDivElement>(null)
 
@@ -493,7 +507,7 @@ export function ExpandableDatasetCard({
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-gradient-to-br from-black/30 to-black/40 backdrop-blur-[2px] h-full w-full z-10"
+                        className="fixed inset-0 bg-black/20 h-full w-full z-10"
                     />
                 )}
             </AnimatePresence>
@@ -506,12 +520,10 @@ export function ExpandableDatasetCard({
                         <motion.button
                             key={`button-${active.id}-${id}`}
                             layout
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.1 } }}
-                            whileHover={{ scale: 1.1, backgroundColor: "var(--destructive)", color: "var(--destructive-foreground)" }}
-                            whileTap={{ scale: 0.95 }}
-                            className="flex absolute top-4 right-4 items-center justify-center bg-background/80 backdrop-blur-sm border border-border rounded-full h-9 w-9 shadow-md transition-colors"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0, transition: { duration: 0.05 } }}
+                            className="flex absolute top-2 right-2 items-center justify-center bg-card text-card-foreground rounded-full h-6 w-6 shadow-md border border-border transition-colors"
                             onClick={closeDetailView}
                         >
                             <CloseIcon />
@@ -521,7 +533,7 @@ export function ExpandableDatasetCard({
                         <motion.div
                             layoutId={`card-${active.id}-${id}`}
                             ref={ref}
-                            className="w-full max-w-[600px] h-full md:h-auto md:max-h-[90%] flex flex-col bg-gradient-to-b from-background/95 to-background rounded-xl overflow-hidden shadow-xl border border-muted/30"
+                            className="w-full max-w-[500px] h-full md:h-fit md:max-h-[90%] flex flex-col bg-card sm:rounded-3xl overflow-hidden shadow-xl border border-border"
                         >
                             <DatasetCard 
                                 dataset={active}
@@ -580,14 +592,6 @@ export function ExpandableDatasetCard({
                         key={dataset.id}
                         onClick={handleCardClick}
                         className="cursor-pointer relative group"
-                        whileHover={{ scale: 1.01 }}
-                        transition={{ 
-                            type: "spring", 
-                            stiffness: 400, 
-                            damping: 25,
-                            mass: 0.5
-                        }}
-                        whileTap={{ scale: 0.99 }}
                     >
                         <DatasetCard 
                             dataset={dataset}

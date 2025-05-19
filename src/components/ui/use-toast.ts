@@ -122,8 +122,19 @@ const useToastState = () => {
   return { state, dispatch };
 };
 
-// Singleton state for toasts
-const { state, dispatch } = { state: { toasts: [] }, dispatch: () => {} };
+// Store the state and dispatch at the module level
+let toastState: State = { toasts: [] };
+let toastDispatch: React.Dispatch<Action> = () => {};
+
+// Function to initialize the toast system, call this in your app's root
+export const InitializeToast = () => {
+  const { state, dispatch } = useToastState();
+  React.useEffect(() => {
+    toastState = state;
+    toastDispatch = dispatch;
+  }, [state, dispatch]);
+  return null; // Or return a fragment if preferred
+};
 
 function addToRemoveQueue(toastId: string) {
   if (toastTimeouts.has(toastId)) {
@@ -132,7 +143,7 @@ function addToRemoveQueue(toastId: string) {
 
   const timeout = setTimeout(() => {
     toastTimeouts.delete(toastId);
-    dispatch({
+    toastDispatch({
       type: "REMOVE_TOAST",
       toastId: toastId,
     });
@@ -147,14 +158,14 @@ function toast(props: ToastMessage) {
   const id = genId();
 
   const update = (props: ToastMessage) =>
-    dispatch({
+    toastDispatch({
       type: "UPDATE_TOAST",
       toast: { ...props, id },
     });
 
-  const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id });
+  const dismiss = () => toastDispatch({ type: "DISMISS_TOAST", toastId: id });
 
-  dispatch({
+  toastDispatch({
     type: "ADD_TOAST",
     toast: {
       ...props,
@@ -175,12 +186,14 @@ function toast(props: ToastMessage) {
 
 function useToast() {
   return {
+    toasts: toastState.toasts,
     toast,
     dismiss: (toastId?: string) => {
-      dispatch({ type: "DISMISS_TOAST", toastId });
+      toastDispatch({ type: "DISMISS_TOAST", toastId });
     },
   };
 }
 
 export { useToast, toast };
 export type { ToastActionElement };
+
