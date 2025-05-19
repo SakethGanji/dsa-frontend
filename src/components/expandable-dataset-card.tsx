@@ -291,76 +291,75 @@ interface ListCardViewProps {
 }
 
 const ListCardView = ({ dataset, isExpanded, onView, onDownload, onSave, uniqueId }: ListCardViewProps) => (
-    <>
-        <div className="flex flex-col w-64 md:w-72 lg:w-80 flex-shrink-0">
-            <CardHeader className="p-3 pb-0">
-                <div className="flex justify-between items-start gap-2">
-                    <motion.div layoutId={`title-${dataset.id}-${uniqueId}`} className="flex-grow">
-                        <CardTitle className="text-sm line-clamp-1">
-                            {dataset.name}
-                        </CardTitle>
-                    </motion.div>
-                    <motion.div layoutId={`badge-${dataset.id}-${uniqueId}`}>
-                        <Badge variant="outline" className="whitespace-nowrap">
-                            v{dataset.version}
-                        </Badge>
-                    </motion.div>
-                </div>
-            </CardHeader>
-
-            <CardContent className="px-3 pt-0 pb-3">
-                <motion.div layoutId={`description-${dataset.id}-${uniqueId}`}>
-                    <CardDescription
-                        className={`line-clamp-2 text-xs ${
-                            isExpanded ? "!line-clamp-none" : ""
-                        }`}
-                    >
-                        {dataset.description}
-                    </CardDescription>
-                </motion.div>
-
-                <motion.div layoutId={`info-${dataset.id}-${uniqueId}`} className="mt-2">
-                    <div className="flex items-center text-xs text-muted-foreground">
-                        <TypeInfo 
-                            fileType={dataset.fileType} 
-                            fileSize={dataset.fileSize} 
-                        />
-                    </div>
-                </motion.div>
-            </CardContent>
+    <div className="flex flex-row items-center w-full px-3 py-3 gap-4">
+        {/* Title and Version (Combined) */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+            <motion.div layoutId={`title-${dataset.id}-${uniqueId}`}>
+                <CardTitle className="text-sm line-clamp-1 whitespace-nowrap">
+                    {dataset.name}
+                </CardTitle>
+            </motion.div>
+            <motion.div layoutId={`badge-${dataset.id}-${uniqueId}`}>
+                <Badge variant="outline" className="whitespace-nowrap">
+                    v{dataset.version}
+                </Badge>
+            </motion.div>
         </div>
 
-        <div className="flex-grow flex flex-col justify-between border-l">
-            <CardContent className="p-3">
-                <TagsDisplay 
-                    tags={dataset.tags} 
-                    isExpanded={isExpanded} 
-                />
-            </CardContent>
+        {/* Description (truncated) - takes available space */}
+        <motion.div layoutId={`description-${dataset.id}-${uniqueId}`} className="flex-grow min-w-0">
+            <CardDescription
+                className={`line-clamp-1 text-xs ${
+                    isExpanded ? "!line-clamp-none" : ""
+                }`}
+            >
+                {dataset.description}
+            </CardDescription>
+        </motion.div>
 
-            <CardFooter className="p-3 flex justify-between items-center gap-2 border-t">
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                        <IconUser className="h-3 w-3 text-muted-foreground" stroke={1.5} />
-                        <span className="truncate max-w-[80px]">{dataset.uploader}</span>
-                    </div>
-                    <span className="mx-1">•</span>
-                    <div className="flex items-center gap-1">
-                        <IconCalendar className="h-3 w-3 text-muted-foreground" stroke={1.5} />
-                        <span>{formatDate(dataset.lastUpdatedTimestamp)}</span>
-                    </div>
-                </div>
-
-                <ActionButtons
-                    datasetId={dataset.id}
-                    onView={onView}
-                    onDownload={onDownload}
-                    onSave={onSave}
-                    layoutId={`actions-${dataset.id}-${uniqueId}`}
+        {/* TypeInfo - flex-shrink-0 to prevent shrinking */}
+        <motion.div layoutId={`info-${dataset.id}-${uniqueId}`} className="flex-shrink-0">
+            <div className="flex items-center text-xs text-muted-foreground">
+                <TypeInfo
+                    fileType={dataset.fileType}
+                    fileSize={dataset.fileSize}
                 />
-            </CardFooter>
+            </div>
+        </motion.div>
+
+        {/* Tags - flex-shrink-0 and limit for single line */}
+        <motion.div layoutId={`tags-${dataset.id}-${uniqueId}`} className="flex-shrink-0">
+            <TagsDisplay
+                tags={dataset.tags}
+                isExpanded={isExpanded}
+                limit={isExpanded ? dataset.tags.length : 2} // Show 2 tags or all if expanded
+                showPlus={!isExpanded}
+            />
+        </motion.div>
+
+        {/* Metadata (Uploader & Date) - flex-shrink-0 */}
+        <div className="flex items-center gap-3 text-xs text-muted-foreground flex-shrink-0">
+            <div className="flex items-center gap-1.5">
+                <IconUser className="h-3.5 w-3.5 flex-shrink-0" stroke={1.5} />
+                <span className="truncate max-w-[100px]">{dataset.uploader}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+                <IconCalendar className="h-3.5 w-3.5 flex-shrink-0" stroke={1.5} />
+                <span className="whitespace-nowrap">{formatDate(dataset.lastUpdatedTimestamp)}</span>
+            </div>
         </div>
-    </>
+
+        {/* Action Buttons - flex-shrink-0 */}
+        <div className="flex-shrink-0">
+            <ActionButtons
+                datasetId={dataset.id}
+                onView={onView}
+                onDownload={onDownload}
+                onSave={onSave}
+                layoutId={`actions-${dataset.id}-${uniqueId}`}
+            />
+        </div>
+    </div>
 )
 
 // Generic DatasetCard wrapper
@@ -496,7 +495,7 @@ export function ExpandableDatasetCard({
     }, [active])
 
     // Handle clicks outside the modal to close it
-    useOutsideClick(ref, closeDetailView)
+    useOutsideClick(ref as React.RefObject<HTMLDivElement>, closeDetailView)
 
     return (
         <>
