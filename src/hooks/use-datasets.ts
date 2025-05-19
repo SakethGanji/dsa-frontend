@@ -29,7 +29,7 @@ export function useDatasetsQuery(filters: DatasetFilters = {}) {
   // Convert client-side search to filter function for results
   const searchTerm = filters.search?.toLowerCase() || '';
   
-  return useQuery({
+  return useQuery<{ datasets: DatasetResponse[], datasetInfos: DatasetInfo[], total: number }, Error>({
     queryKey: datasetKeys.list({ limit, offset, search: searchTerm }),
     queryFn: async () => {
       // Call the API to get the datasets
@@ -65,7 +65,7 @@ export function useDatasetsQuery(filters: DatasetFilters = {}) {
 }
 
 export function useDatasetQuery(id: number) {
-  return useQuery({
+  return useQuery<DatasetResponse, Error>({
     queryKey: datasetKeys.detail(id),
     queryFn: () => datasetsApi.getDatasetById(id),
     enabled: !!id,
@@ -150,3 +150,4 @@ export function usePaginatedDatasets(initialFilters: DatasetFilters = {}) {
     },
   };
 }
+
