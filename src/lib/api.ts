@@ -1,4 +1,5 @@
-import type {DatasetResponse} from '../../types/dataset';
+import type { DatasetResponse } from '../../types/dataset';
+import { getStoredTokens, isTokenExpired, refreshAccessToken, removeTokens } from './auth';
 
 const API_BASE_URL = 'http://localhost:8000/api';
 
@@ -8,6 +9,67 @@ interface ApiOptions {
   params?: Record<string, string | number | boolean | undefined>;
   data?: unknown;
   headers?: Record<string, string>;
+  requireAuth?: boolean;
+}
+
+// Global variable to track if a token refresh is in progress
+let isRefreshing = false;
+let refreshPromise: Promise<void> | null = null;
+
+// Function to get auth headers
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  const tokens = getStoredTokens();
+  
+  if (!tokens) {
+    throw new Error('Authentication required');
+  }
+
+  // Check if token is expired and needs refresh
+  if (isTokenExpired(tokens.access_token)) {
+    // Only allow one refresh at a time
+    if (!isRefreshing) {
+      isRefreshing = true;
+      refreshPromise = refreshToken().finally(() => {
+        isRefreshing = false;
+        refreshPromise = null;
+      });
+    }
+    
+    // Wait for the ongoing refresh to complete
+    if (refreshPromise) {
+      await refreshPromise;
+    }
+    
+    // Get the fresh tokens
+    const freshTokens = getStoredTokens();
+    if (!freshTokens) {
+      throw new Error('Authentication required');
+    }
+    
+    return { Authorization: `Bearer ${freshTokens.access_token}` };
+  }
+  
+  return { Authorization: `Bearer ${tokens.access_token}` };
+}
+
+// Function to refresh token
+async function refreshToken(): Promise<void> {
+  try {
+    const tokens = getStoredTokens();
+    if (!tokens) {
+      throw new Error('No refresh token available');
+    }
+    
+    const newTokens = await refreshAccessToken(tokens.refresh_token);
+    
+    // Store the new tokens
+    localStorage.setItem('auth_tokens', JSON.stringify(newTokens));
+  } catch (error) {
+    // If refresh fails, clear tokens and force re-login
+    removeTokens();
+    console.error('Token refresh failed:', error);
+    throw new Error('Session expired. Please login again.');
+  }
 }
 
 export async function apiClient<T>({
@@ -16,6 +78,7 @@ export async function apiClient<T>({
   params = {},
   data,
   headers = {},
+  requireAuth = true,
 }: ApiOptions): Promise<T> {
   try {
     // Build URL with params
@@ -28,8 +91,6 @@ export async function apiClient<T>({
       }
     });
 
-    console.log(`Fetching from API: ${url.toString()}`);
-
     // Configure request options
     const options: RequestInit = {
       method,
@@ -39,6 +100,24 @@ export async function apiClient<T>({
         ...headers,
       },
     };
+
+    // Add auth headers if required
+    if (requireAuth) {
+      try {
+        const authHeaders = await getAuthHeaders();
+        options.headers = { ...options.headers, ...authHeaders };
+      } catch (error) {
+        // If it's an auth error during a request that requires auth,
+        // we should redirect to login
+        const authError = error as Error;
+        console.error('Authentication error:', authError.message);
+        
+        // Use the window location to redirect to login
+        // This will work in the browser but is a side effect
+        window.location.href = '/login';
+        throw authError;
+      }
+    }
 
     // Add request body for non-GET requests
     if (data && method !== 'GET') {
@@ -50,6 +129,14 @@ export async function apiClient<T>({
 
     // Handle non-2xx responses
     if (!response.ok) {
+      // Handle 401 Unauthorized - token might have expired during the request
+      if (response.status === 401 && requireAuth) {
+        // Force logout if refresh token also failed
+        removeTokens();
+        window.location.href = '/login';
+        throw new Error('Session expired. Please login again.');
+      }
+      
       const errorData = await response.json().catch(() => ({}));
       throw new Error(
         errorData.detail || `API error: ${response.status} ${response.statusText}`
@@ -64,23 +151,35 @@ export async function apiClient<T>({
   }
 }
 
+// Auth API endpoints
+export const authApi = {
+  validateSession: () => 
+    apiClient<{ valid: boolean }>({
+      endpoint: '/users/me',
+      requireAuth: true,
+    }),
+};
+
 // Dataset API endpoints
 export const datasetsApi = {
   getDatasets: (params?: { limit?: number; offset?: number }) => 
     apiClient<DatasetResponse[]>({
       endpoint: '/datasets',
       params,
+      requireAuth: true,
     }),
   
   getDatasetById: (id: number) => 
     apiClient<DatasetResponse>({
       endpoint: `/datasets/${id}`,
+      requireAuth: true,
     }),
     
   // Get versions for a dataset
   getDatasetVersions: (datasetId: number) => 
     apiClient<any[]>({
       endpoint: `/datasets/${datasetId}/versions`,
+      requireAuth: true,
     }),
     
   // Get data from a specific dataset version
@@ -91,6 +190,7 @@ export const datasetsApi = {
     apiClient<any>({
       endpoint: `/datasets/${datasetId}/versions/${versionId}/data`,
       params,
+      requireAuth: true,
     }),
     
   // Generate dataset exploration with pandas profiling
@@ -102,5 +202,6 @@ export const datasetsApi = {
       endpoint: `/explore/${datasetId}/${versionId}`,
       method: 'POST',
       data: options,
+      requireAuth: true,
     }),
 };

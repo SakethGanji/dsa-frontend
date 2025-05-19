@@ -21,8 +21,8 @@ import {
 // Simplified data structure for the sidebar
 const sidebarData = {
   user: {
-    name: "shadcn",
-    email: "m@example.com",
+    name: "saketh",
+    email: "bg54677",
     avatar: "/avatars/shadcn.jpg",
   },
   // Upper section tabs: Datasets, Exploration, Outputs
