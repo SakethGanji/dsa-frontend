@@ -76,7 +76,7 @@ export function LoginPage() {
                   />
                 </div>
               </CardContent>
-              <CardFooter className="flex justify-center">
+              <CardFooter className="flex justify-center mt-6">
                 <Button
                     type="submit"
                     className="w-full"

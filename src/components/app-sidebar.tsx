@@ -17,14 +17,15 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+import { useAuthStatus } from "@/hooks/use-auth"; // Added import
 
 // Simplified data structure for the sidebar
 const sidebarData = {
-  user: {
-    name: "saketh",
-    email: "bg54677",
-    avatar: "/avatars/shadcn.jpg",
-  },
+  // user: { // This will be replaced by the authenticated user
+  //   name: "saketh",
+  //   email: "bg54677",
+  //   avatar: "/avatars/shadcn.jpg",
+  // },
   // Upper section tabs: Datasets, Exploration, Outputs
   upperNavItems: [
     {
@@ -69,6 +70,7 @@ const sidebarData = {
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { user, isAuthenticated, isLoading } = useAuthStatus(); // Get user data from hook
   return (
       <Sidebar collapsible="offcanvas" {...props}>
         <SidebarHeader>
@@ -97,7 +99,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarContent>
         <SidebarFooter>
           {/* Bottom part of nav bar (fixed footer) - NavUser kept as is */}
-          <NavUser user={sidebarData.user} />
+          {isAuthenticated && !isLoading && user && <NavUser user={{name: user.sub || "User", email: user.sub ? `Username: ${user.sub}` : "Details N/A", avatar: "/avatars/shadcn.jpg"}} />}
         </SidebarFooter>
       </Sidebar>
   )
