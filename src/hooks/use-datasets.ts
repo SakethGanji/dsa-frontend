@@ -1,6 +1,6 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query'; // Removed unused useQueryClient
 import { useState } from 'react';
-import { datasetsApi } from '@/lib/api';
+import { api } from '@/lib/api/index'; // Corrected import path
 // Import types with explicit path
 import type { DatasetInfo } from '../../types/dataset';
 import { mapApiResponseToDatasetInfo } from '../../types/dataset';
@@ -35,7 +35,7 @@ export function useDatasetsQuery(filters: DatasetFilters = {}) {
       // Call the API to get the datasets
       // For a real implementation, we would also get the total count from the API
       // For now, we'll assume we need to use the client-side filtering
-      const data = await datasetsApi.getDatasets({ limit, offset });
+      const data = await api.datasets.getAll({ limit, offset });
       
       // We'll assume for now we need to do client-side filtering for search
       // In a production app, you would pass the search term to the API
@@ -43,8 +43,8 @@ export function useDatasetsQuery(filters: DatasetFilters = {}) {
         ? data.filter(
             (dataset) =>
               dataset.name.toLowerCase().includes(searchTerm) ||
-              dataset.description.toLowerCase().includes(searchTerm) ||
-              dataset.tags.some((tag) => tag.name.toLowerCase().includes(searchTerm))
+              (dataset.description && dataset.description.toLowerCase().includes(searchTerm)) || // Added null check
+              (dataset.tags && dataset.tags.some((tag) => tag.name.toLowerCase().includes(searchTerm))) // Added null check
           )
         : data;
       
@@ -67,7 +67,7 @@ export function useDatasetsQuery(filters: DatasetFilters = {}) {
 export function useDatasetQuery(id: number) {
   return useQuery<DatasetResponse, Error>({
     queryKey: datasetKeys.detail(id),
-    queryFn: () => datasetsApi.getDatasetById(id),
+    queryFn: () => api.datasets.getById(id),
     enabled: !!id,
   });
 }

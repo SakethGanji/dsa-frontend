@@ -1,212 +1,480 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
+import { DatasetSearchBar } from "@/components/dataset-search"
 import { motion, AnimatePresence } from "framer-motion"
-import { ChevronRight } from "lucide-react"
-import { PageTransition } from "@/components/page-transition"
+import type { Dataset } from "@/lib/api/types"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-
-import PathSelection from "@/components/exploration/path-selection"
-import ChooseDataset from "@/components/exploration/choose-dataset"
-import ExplorationRuns from "@/components/exploration/exploration-runs"
-import TableView from "@/components/exploration/table-view"
-import Output from "@/components/exploration/output"
-
-// Define our flow steps
-type FlowStep = "path-selection" | "choose-dataset" | "exploration-runs" | "table-view" | "output"
-
-// Define our flow paths
-type FlowPath = "new-analysis" | "existing-run"
+import { BarChart2, Database, FileDown, Book, Eye, Tag, Search, ArrowRight } from "lucide-react"
+import { format } from "date-fns"
+import { useNavigate } from "@tanstack/react-router"
+import { useDatasetVersions, useExploreDataset } from "@/hooks"
+import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { createProfileRequest } from "@/hooks/use-exploration-query"
+import { DatasetTableView } from "@/components/dataset-table-view"
 
 export function ExplorationPage() {
-  // Track current step and selected path
-  const [currentStep, setCurrentStep] = useState<FlowStep>("path-selection")
-  const [selectedPath, setSelectedPath] = useState<FlowPath | null>(null)
+  const [selectedDataset, setSelectedDataset] = useState<Dataset | null>(null)
+  const [selectedVersion, setSelectedVersion] = useState<number | null>(null)
+  const [activeTab, setActiveTab] = useState("overview")
+  const searchRef = useRef<HTMLDivElement>(null)
+  const navigate = useNavigate()
+  
+  const { 
+    data: versions,
+    isLoading: versionsLoading, 
+    isError: versionsError 
+  } = useDatasetVersions(
+    selectedDataset?.id || 0, 
+    { enabled: !!selectedDataset }
+  );
 
-  // Track selected items
-  const [selectedDataset, setSelectedDataset] = useState<string | null>(null)
-  const [selectedRun, setSelectedRun] = useState<string | null>(null)
+  // Add exploration mutation
+  const exploreMutation = useExploreDataset<any>();
 
-  // Handle path selection
-  const selectPath = (path: FlowPath) => {
-    setSelectedPath(path)
-    if (path === "new-analysis") {
-      setCurrentStep("choose-dataset")
-    } else {
-      setCurrentStep("exploration-runs")
+  // Auto-select the first version when versions load
+  useEffect(() => {
+    if (versions && versions.length > 0 && !selectedVersion) {
+      setSelectedVersion(versions[0].id);
     }
-  }
-
-  // Navigation functions
-  const goToNextStep = () => {
-    if (selectedPath === "new-analysis") {
-      if (currentStep === "choose-dataset") setCurrentStep("table-view")
-      else if (currentStep === "table-view") setCurrentStep("output")
-    } else {
-      if (currentStep === "exploration-runs") setCurrentStep("output")
-    }
-  }
-
-  const goToPreviousStep = () => {
-    if (selectedPath === "new-analysis") {
-      if (currentStep === "table-view") setCurrentStep("choose-dataset")
-      else if (currentStep === "output") setCurrentStep("table-view")
-    } else {
-      if (currentStep === "output") setCurrentStep("exploration-runs")
-    }
-  }
-
-  const goToStart = () => {
-    setCurrentStep("path-selection")
-    setSelectedPath(null)
-    setSelectedDataset(null)
-    setSelectedRun(null)
-  }
-
-  // Calculate progress percentage
-  const getProgressPercentage = () => {
-    if (selectedPath === "new-analysis") {
-      switch (currentStep) {
-        case "choose-dataset":
-          return 33
-        case "table-view":
-          return 66
-        case "output":
-          return 100
-        default:
-          return 0
-      }
-    } else {
-      switch (currentStep) {
-        case "exploration-runs":
-          return 50
-        case "output":
-          return 100
-        default:
-          return 0
+  }, [versions, selectedVersion]);
+  
+  // Check if we need to fetch a profile when switching to the exploration tab
+  useEffect(() => {
+    if (activeTab === "exploration" && selectedDataset && selectedVersion) {
+      // Check if we already have a profile in sessionStorage
+      const storedProfile = sessionStorage.getItem(`profile_${selectedDataset.id}_${selectedVersion}`);
+      
+      // If no stored profile and we haven't already started the exploration mutation
+      if (!storedProfile && !exploreMutation.isPending && !exploreMutation.data) {
+        // Request the profile
+        exploreMutation.mutate({
+          datasetId: selectedDataset.id,
+          versionId: selectedVersion,
+          options: createProfileRequest('html')
+        });
       }
     }
+  }, [activeTab, selectedDataset, selectedVersion, exploreMutation]);
+
+  const handleSelectDataset = (dataset: Dataset) => {
+    setSelectedDataset(dataset);
+    setSelectedVersion(null); // Reset selected version
+    setActiveTab("overview"); // Reset to overview tab
+    
+    // Scroll to results if on mobile
+    setTimeout(() => {
+      if (window.innerWidth < 768 && searchRef.current) {
+        searchRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, 100);
+  };
+  
+  const handleExploreData = () => {
+    if (!selectedDataset || !selectedVersion) return;
+    
+    const versionId = selectedVersion;
+    const datasetId = selectedDataset.id;
+    
+    // Use the helper function to create a profile-only request
+    exploreMutation.mutate({
+      datasetId,
+      versionId,
+      options: createProfileRequest('html')
+    }, {
+      onSuccess: () => {
+        setActiveTab("exploration");
+      }
+    });
+  };
+
+  const formatByteSize = (bytes?: number | null) => {
+    if (!bytes) return "Unknown";
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    if (bytes === 0) return '0 Byte';
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return Math.round((bytes / Math.pow(1024, i)) * 100) / 100 + ' ' + sizes[i];
   }
 
-  // Get step title
-  const getStepTitle = () => {
-    switch (currentStep) {
-      case "path-selection":
-        return "Select Analysis Type"
-      case "choose-dataset":
-        return "Choose Dataset"
-      case "exploration-runs":
-        return "Exploration Runs"
-      case "table-view":
-        return "Table View"
-      case "output":
-        return "Output"
+  const getFileIcon = (fileType?: string | null) => {
+    switch(fileType?.toLowerCase()) {
+      case 'csv':
+        return <BarChart2 className="h-5 w-5 text-green-500" />;
+      case 'xlsx':
+      case 'xls':
+        return <BarChart2 className="h-5 w-5 text-blue-500" />;
+      default:
+        return <Database className="h-5 w-5 text-gray-500" />;
     }
   }
 
   return (
-    <PageTransition>
-      <div className="container py-6">
-        
-        {/* Flow container with shadcn styling */}
-        <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
-          {/* Header with step indicator */}
-          <div className="flex flex-col space-y-1.5 p-6 border-b">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-semibold leading-none tracking-tight">{getStepTitle()}</h2>
-              {selectedPath && (
-                <div className="flex items-center text-sm text-muted-foreground">
-                  <span className="mr-2">{selectedPath === "new-analysis" ? "New Analysis" : "View Existing Run"}</span>
-                  <Button variant="ghost" size="sm" onClick={goToStart} className="text-primary font-medium h-7 px-2">
-                    Change
-                  </Button>
-                </div>
-              )}
-            </div>
-
-            {/* Progress bar */}
-            {selectedPath && (
-              <div className="relative h-1 bg-muted mt-4">
-                <motion.div
-                  className="absolute h-full bg-primary"
-                  initial={{ width: `${getProgressPercentage()}%` }}
-                  animate={{ width: `${getProgressPercentage()}%` }}
-                  transition={{ type: "spring", stiffness: 100, damping: 20 }}
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Content */}
-          <div className="relative overflow-hidden">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={currentStep}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{
-                  type: "spring",
-                  stiffness: 300,
-                  damping: 30,
-                  duration: 0.3,
-                }}
-              >
-                {currentStep === "path-selection" && <PathSelection onSelectPath={selectPath} />}
-
-                {currentStep === "choose-dataset" && (
-                  <ChooseDataset
-                    onNext={goToNextStep}
-                    selectedDataset={selectedDataset}
-                    setSelectedDataset={setSelectedDataset}
-                  />
-                )}
-
-                {currentStep === "exploration-runs" && (
-                  <ExplorationRuns onNext={goToNextStep} selectedRun={selectedRun} setSelectedRun={setSelectedRun} />
-                )}
-
-                {currentStep === "table-view" && (
-                  <TableView onNext={goToNextStep} onPrevious={goToPreviousStep} datasetId={selectedDataset} />
-                )}
-
-                {currentStep === "output" && (
-                  <Output
-                    onPrevious={goToPreviousStep}
-                    source={selectedPath === "new-analysis" ? "dataset" : "run"}
-                    sourceId={selectedPath === "new-analysis" ? selectedDataset : selectedRun}
-                  />
-                )}
-              </motion.div>
-            </AnimatePresence>
-          </div>
-
-          {/* Navigation buttons - only show when not on path selection */}
-          {currentStep !== "path-selection" && (
-            <div className="flex items-center justify-between p-6 border-t">
-              <Button
-                variant="outline"
-                onClick={goToPreviousStep}
-                disabled={currentStep === "choose-dataset" || currentStep === "exploration-runs"}
-              >
-                Back
-              </Button>
-              <Button
-                onClick={goToNextStep}
-                disabled={
-                  (currentStep === "choose-dataset" && !selectedDataset) ||
-                  (currentStep === "exploration-runs" && !selectedRun) ||
-                  currentStep === "output"
-                }
-                className="flex items-center"
-              >
-                Next
-                <ChevronRight className="ml-1 h-4 w-4" />
-              </Button>
-            </div>
-          )}
+    <div className="container px-4 py-8 mx-auto max-w-5xl">
+      <div className="space-y-6">
+        {/* Header */}
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Data Exploration</h1>
+          <p className="mt-2 text-gray-500 dark:text-gray-400">
+            Search for datasets and explore data with advanced analytics tools
+          </p>
         </div>
+        
+        {/* Hero Search Section */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-xl p-6 md:p-8 shadow-sm">
+          <div className="max-w-2xl mx-auto text-center mb-6">
+            <h2 className="text-2xl font-bold mb-2">Find Your Dataset</h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">Search from the available datasets to begin your data exploration journey</p>
+            
+            <div className="max-w-md mx-auto transform transition-all hover:scale-[1.01]">
+              <DatasetSearchBar onSelectDataset={handleSelectDataset} />
+            </div>
+            
+            <div className="mt-4 text-sm text-gray-500 flex items-center justify-center gap-4">
+              <div className="flex items-center">
+                <Search className="h-3 w-3 mr-1" />
+                <span>Search by name</span>
+              </div>
+              <div className="flex items-center">
+                <Tag className="h-3 w-3 mr-1" />
+                <span>View tags</span>
+              </div>
+              <div className="flex items-center">
+                <Book className="h-3 w-3 mr-1" />
+                <span>Explore data</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div ref={searchRef}></div>
+        
+        <AnimatePresence mode="wait">
+          {selectedDataset && (
+            <motion.div
+              key="dataset-info"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+              className="space-y-6"
+            >
+              {/* Dataset Overview Card */}
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <div className="flex items-center justify-between mb-4">
+                  <TabsList className="grid w-full max-w-md grid-cols-2">
+                    <TabsTrigger value="overview">Overview</TabsTrigger>
+                    <TabsTrigger value="exploration" disabled={exploreMutation.isPending}>
+                      {exploreMutation.isPending ? "Loading..." : "Exploration"}
+                    </TabsTrigger>
+                  </TabsList>
+                </div>
+                
+                <TabsContent value="overview" className="space-y-6">
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center space-x-2">
+                        {getFileIcon(selectedDataset.file_type)}
+                        <CardTitle>{selectedDataset.name}</CardTitle>
+                      </div>
+                      <CardDescription className="mt-2">
+                        {selectedDataset.description || "No description available"}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium text-gray-500">File Type</span>
+                          <span className="text-lg font-semibold">
+                            {selectedDataset.file_type?.toUpperCase() || "Unknown"}
+                          </span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium text-gray-500">Size</span>
+                          <span className="text-lg font-semibold">
+                            {formatByteSize(selectedDataset.file_size)}
+                          </span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium text-gray-500">Last Updated</span>
+                          <span className="text-lg font-semibold">
+                            {format(new Date(selectedDataset.updated_at), 'MMM d, yyyy')}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {selectedDataset.tags && selectedDataset.tags.length > 0 && (
+                        <div className="mt-4">
+                          <h4 className="text-sm font-medium text-gray-500 mb-2 flex items-center">
+                            <Tag className="h-4 w-4 mr-1" /> Tags
+                          </h4>
+                          <div className="flex flex-wrap gap-2">
+                            {selectedDataset.tags.map(tag => (
+                              <Badge key={tag.id} variant="outline" className="rounded-full">
+                                {tag.name}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                    <CardFooter className="flex justify-end space-x-2 pt-0">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="flex items-center"
+                        onClick={() => {
+                          if (selectedDataset.id) {
+                            navigate({ to: `/datasets/${selectedDataset.id}` });
+                          }
+                        }}
+                      >
+                        <Eye className="h-4 w-4 mr-1" /> View Details
+                      </Button>
+                      
+                      <Button 
+                        variant="default" 
+                        size="sm" 
+                        className="flex items-center"
+                        onClick={handleExploreData}
+                        disabled={!selectedVersion || exploreMutation.isPending}
+                      >
+                        <Book className="h-4 w-4 mr-1" /> 
+                        {exploreMutation.isPending ? "Loading..." : "Explore Data"}
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                  
+                  {/* Versions Section */}
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3">Available Versions</h3>
+                    <div className="space-y-3">
+                      {versionsLoading ? (
+                        Array.from({ length: 2 }).map((_, i) => (
+                          <div key={i} className="flex items-center space-x-4 p-4 border rounded-lg">
+                            <Skeleton className="h-10 w-10 rounded-full" />
+                            <div className="space-y-2 flex-1">
+                              <Skeleton className="h-4 w-3/4" />
+                              <Skeleton className="h-4 w-1/2" />
+                            </div>
+                          </div>
+                        ))
+                      ) : versionsError ? (
+                        <Card>
+                          <CardContent className="py-4 text-center text-red-500">
+                            Failed to load versions
+                          </CardContent>
+                        </Card>
+                      ) : versions && versions.length > 0 ? (
+                        versions.map(version => (
+                          <Card 
+                            key={version.id} 
+                            className={`hover:shadow-md transition-shadow ${selectedVersion === version.id ? 'border-blue-500 shadow-blue-100 dark:shadow-blue-900/20' : ''}`}
+                            onClick={() => setSelectedVersion(version.id)}
+                          >
+                            <CardHeader className="pb-2">
+                              <div className="flex justify-between items-center">
+                                <CardTitle className="text-lg flex items-center">
+                                  {selectedVersion === version.id && (
+                                    <ArrowRight className="h-4 w-4 mr-1 text-blue-500" />
+                                  )}
+                                  Version {version.version_number}
+                                </CardTitle>
+                                <Badge className={`ml-2 ${selectedVersion === version.id ? 'bg-blue-500' : ''}`}>
+                                  {version.file_type?.toUpperCase() || "UNKNOWN"}
+                                </Badge>
+                              </div>
+                              <CardDescription>
+                                Uploaded {format(new Date(version.ingestion_timestamp), 'MMM d, yyyy')}
+                              </CardDescription>
+                            </CardHeader>
+                            <CardContent className="py-2">
+                              <div className="flex items-center text-sm text-gray-500">
+                                <Database className="h-4 w-4 mr-1" />
+                                <span>{formatByteSize(version.file_size)}</span>
+                              </div>
+                            </CardContent>
+                            <CardFooter className="flex justify-end space-x-2 pt-0">
+                              <Button variant="outline" size="sm" className="flex items-center">
+                                <FileDown className="h-4 w-4 mr-1" /> Download
+                              </Button>
+                              <Button 
+                                variant={selectedVersion === version.id ? "default" : "outline"} 
+                                size="sm" 
+                                className="flex items-center"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedVersion(version.id);
+                                  handleExploreData();
+                                }}
+                                disabled={exploreMutation.isPending}
+                              >
+                                <Book className="h-4 w-4 mr-1" /> Explore
+                              </Button>
+                            </CardFooter>
+                          </Card>
+                        ))
+                      ) : (
+                        <Card>
+                          <CardContent className="py-4 text-center text-gray-500">
+                            No versions available for this dataset
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
+                  </div>
+                </TabsContent>
+                
+                {/* Exploration Tab */}
+                <TabsContent value="exploration">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Data Exploration</CardTitle>
+                      <CardDescription>
+                        Analyzing and visualizing dataset: {selectedDataset.name}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {exploreMutation.isPending ? (
+                        <div className="py-12 text-center">
+                          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent motion-reduce:animate-[spin_1.5s_linear_infinite] mb-4"></div>
+                          <p className="text-gray-500">Processing your data...</p>
+                        </div>
+                      ) : exploreMutation.isError ? (
+                        <div className="py-8 text-center text-red-500">
+                          <p>Error analyzing dataset: {exploreMutation.error.message}</p>
+                        </div>
+                      ) : exploreMutation.data ? (
+                        <div className="space-y-6">
+                          {/* Dataset Table View */}
+                          {selectedDataset && selectedVersion && (
+                            <Tabs defaultValue="table" className="w-full">
+                              <TabsList className="mb-4">
+                                <TabsTrigger value="table">Data Table</TabsTrigger>
+                                <TabsTrigger value="analysis">Analysis</TabsTrigger>
+                              </TabsList>
+                              
+                              <TabsContent value="table">
+                                <DatasetTableView 
+                                  datasetId={selectedDataset.id} 
+                                  versionId={selectedVersion}
+                                />
+                              </TabsContent>
+                              
+                              <TabsContent value="analysis">
+                                <div className="bg-white dark:bg-zinc-900 rounded-lg overflow-auto max-h-[600px]">
+                                  {exploreMutation.data?.profile ? (
+                                    <iframe 
+                                      srcDoc={exploreMutation.data.profile} 
+                                      title="Dataset Profile" 
+                                      className="w-full h-[600px] border-0"
+                                      sandbox="allow-scripts allow-same-origin"
+                                    />
+                                  ) : (
+                                    // Try to get profile from sessionStorage if exploreMutation doesn't have it
+                                    (() => {
+                                      const storedProfile = sessionStorage.getItem(`profile_${selectedDataset?.id}_${selectedVersion}`);
+                                      const isLoading = sessionStorage.getItem(`profile_loading_${selectedDataset?.id}_${selectedVersion}`);
+                                      const errorMessage = sessionStorage.getItem(`profile_error_${selectedDataset?.id}_${selectedVersion}`);
+                                      
+                                      if (storedProfile) {
+                                        // We have a profile, show it
+                                        return (
+                                          <iframe 
+                                            srcDoc={storedProfile} 
+                                            title="Dataset Profile" 
+                                            className="w-full h-[600px] border-0"
+                                            sandbox="allow-scripts allow-same-origin"
+                                          />
+                                        );
+                                      } else if (isLoading) {
+                                        // Profile generation is in progress
+                                        return (
+                                          <div className="flex flex-col items-center justify-center py-12">
+                                            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent motion-reduce:animate-[spin_1.5s_linear_infinite] mb-4"></div>
+                                            <p className="text-gray-500">Generating profile data...</p>
+                                          </div>
+                                        );
+                                      } else if (errorMessage) {
+                                        // Error occurred during profile generation
+                                        return (
+                                          <div className="p-6 text-center">
+                                            <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-500 mb-4">
+                                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z" />
+                                              </svg>
+                                            </div>
+                                            <h3 className="text-lg font-medium text-red-600 mb-2">Profile Generation Failed</h3>
+                                            <p className="text-sm text-gray-600 mb-4">{errorMessage}</p>
+                                            <Button 
+                                              variant="outline" 
+                                              onClick={() => {
+                                                // Clear error and retry
+                                                sessionStorage.removeItem(`profile_error_${selectedDataset?.id}_${selectedVersion}`);
+                                                
+                                                // Retry profile generation
+                                                if (selectedDataset && selectedVersion) {
+                                                  exploreMutation.mutate({
+                                                    datasetId: selectedDataset.id,
+                                                    versionId: selectedVersion,
+                                                    options: createProfileRequest('html')
+                                                  });
+                                                }
+                                              }}
+                                            >
+                                              Retry
+                                            </Button>
+                                          </div>
+                                        );
+                                      } else {
+                                        // No profile data available yet
+                                        return (
+                                          <div className="p-4 text-center text-muted-foreground">
+                                            No profile data available. Click the "Explore Data" button to generate a profile.
+                                          </div>
+                                        );
+                                      }
+                                    })()
+                                  )}
+                                </div>
+                              </TabsContent>
+                            </Tabs>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="py-8 text-center text-gray-500">
+                          <p>Select a dataset version and click "Explore Data" to begin analysis</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              </Tabs>
+            </motion.div>
+          )}
+          
+          {!selectedDataset && (
+            <motion.div
+              key="dataset-placeholder"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+              className="mt-8 text-center py-8"
+            >
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 mb-4">
+                <Database className="w-8 h-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">No dataset selected</h3>
+              <p className="mt-2 text-sm text-gray-500 max-w-md mx-auto">
+                Search for a dataset above to begin exploration. You can analyze data, create visualizations, and generate insights.
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
-    </PageTransition>
+    </div>
   )
 }

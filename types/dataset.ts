@@ -1,4 +1,5 @@
 // src/types/dataset.ts
+import { Dataset as ApiDataset, Tag } from './api';
 
 // Original Dataset interface for backwards compatibility
 export interface Dataset {
@@ -14,39 +15,12 @@ export interface Dataset {
     uploader: string;
 }
 
-// API response types
-export interface Tag {
-    name: string;
-    description: string | null;
-    id: number;
-    usage_count: number | null;
-}
+// Re-export API types for backwards compatibility
+export type { Tag } from './api';
+export type { DatasetVersion } from './api';
 
-export interface DatasetVersion {
-    id: number;
-    dataset_id: number;
-    version_number: number;
-    created_at: string;
-    updated_at: string;
-    file_type: string;
-    file_size: number;
-    schema: any | null;
-    metadata: Record<string, any> | null;
-}
-
-export interface DatasetResponse {
-    name: string;
-    description: string;
-    id: number;
-    created_by: number;
-    created_at: string;
-    updated_at: string;
-    current_version: number;
-    file_type: string;
-    file_size: number;
-    versions: DatasetVersion[] | null;
-    tags: Tag[];
-}
+// Alias the API Dataset type as DatasetResponse for backwards compatibility
+export type DatasetResponse = ApiDataset;
 
 // For use in the component that expects a different format
 export interface DatasetInfo {
@@ -62,7 +36,7 @@ export interface DatasetInfo {
 }
 
 // Function to convert API response to component format
-export function mapApiResponseToDatasetInfo(dataset: DatasetResponse): DatasetInfo {
+export function mapApiResponseToDatasetInfo(dataset: ApiDataset): DatasetInfo {
     try {
         return {
             id: dataset.id,

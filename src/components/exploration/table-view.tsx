@@ -40,7 +40,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { useQuery } from "@tanstack/react-query"
-import { datasetsApi } from "@/lib/api"
+import { datasetsApi, api } from "@/lib/api"
 
 interface TableViewProps {
   onNext: () => void
@@ -473,16 +473,39 @@ export default function TableView({ onNext, onPrevious, datasetId }: TableViewPr
             <Button 
               onClick={() => {
                 if (datasetId && selectedVersion) {
+                  // Set loading state in sessionStorage
+                  sessionStorage.setItem(`profile_loading_${datasetId}_${selectedVersion}`, "true");
+                  
                   // Request exploration profile before proceeding to analysis
-                  datasetsApi.exploreDataset(Number(datasetId), selectedVersion, {
+                  // Using the direct API client call since we're not in a component that uses the hook
+                  api.explore.runExplore(Number(datasetId), selectedVersion, {
                     format: "html",
-                    run_profiling: true
+                    run_profiling: true,
+                    operations: [] // Empty operations array for profiling only
                   })
-                  .then(() => {
+                  .then((response) => {
                     console.log("Exploration profile generated successfully");
+                    // Remove loading state
+                    sessionStorage.removeItem(`profile_loading_${datasetId}_${selectedVersion}`);
+                    
+                    // Store the profile data in sessionStorage for retrieval later
+                    if (response && response.profile) {
+                      sessionStorage.setItem(`profile_${datasetId}_${selectedVersion}`, response.profile);
+                    } else {
+                      // Store error if no profile returned but request succeeded
+                      sessionStorage.setItem(`profile_error_${datasetId}_${selectedVersion}`, 
+                        "Profile generation succeeded but no profile data was returned");
+                    }
                     onNext();
                   })
                   .catch(error => {
+                    // Remove loading state
+                    sessionStorage.removeItem(`profile_loading_${datasetId}_${selectedVersion}`);
+                    
+                    // Store error message
+                    const errorMessage = error?.message || "An unknown error occurred";
+                    sessionStorage.setItem(`profile_error_${datasetId}_${selectedVersion}`, errorMessage);
+                    
                     console.error("Error generating exploration profile:", error);
                     // Proceed anyway in case the backend already has the profile
                     onNext();
