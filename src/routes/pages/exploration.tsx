@@ -13,7 +13,8 @@ import { useDatasetVersions, useExploreDataset } from "@/hooks"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { createExploreOptions, explorationOperations } from "@/hooks/use-exploration-query"
+import { createProfileRequest } from "@/hooks/use-exploration-query"
+import { DatasetTableView } from "@/components/dataset-table-view"
 
 export function ExplorationPage() {
   const [selectedDataset, setSelectedDataset] = useState<Dataset | null>(null)
@@ -40,6 +41,24 @@ export function ExplorationPage() {
       setSelectedVersion(versions[0].id);
     }
   }, [versions, selectedVersion]);
+  
+  // Check if we need to fetch a profile when switching to the exploration tab
+  useEffect(() => {
+    if (activeTab === "exploration" && selectedDataset && selectedVersion) {
+      // Check if we already have a profile in sessionStorage
+      const storedProfile = sessionStorage.getItem(`profile_${selectedDataset.id}_${selectedVersion}`);
+      
+      // If no stored profile and we haven't already started the exploration mutation
+      if (!storedProfile && !exploreMutation.isPending && !exploreMutation.data) {
+        // Request the profile
+        exploreMutation.mutate({
+          datasetId: selectedDataset.id,
+          versionId: selectedVersion,
+          options: createProfileRequest('html')
+        });
+      }
+    }
+  }, [activeTab, selectedDataset, selectedVersion, exploreMutation]);
 
   const handleSelectDataset = (dataset: Dataset) => {
     setSelectedDataset(dataset);
@@ -60,15 +79,11 @@ export function ExplorationPage() {
     const versionId = selectedVersion;
     const datasetId = selectedDataset.id;
     
-    // Example exploration with basic operations
-    const operations = [
-      explorationOperations.sampleRows(1000, 'random'),
-    ];
-    
+    // Use the helper function to create a profile-only request
     exploreMutation.mutate({
       datasetId,
       versionId,
-      options: createExploreOptions(operations, { run_profiling: true })
+      options: createProfileRequest('html')
     }, {
       onSuccess: () => {
         setActiveTab("exploration");
@@ -333,11 +348,100 @@ export function ExplorationPage() {
                         </div>
                       ) : exploreMutation.data ? (
                         <div className="space-y-6">
-                          <div className="bg-gray-50 dark:bg-zinc-900 rounded-lg p-4 overflow-auto max-h-[600px]">
-                            <pre className="text-xs">
-                              {JSON.stringify(exploreMutation.data, null, 2)}
-                            </pre>
-                          </div>
+                          {/* Dataset Table View */}
+                          {selectedDataset && selectedVersion && (
+                            <Tabs defaultValue="table" className="w-full">
+                              <TabsList className="mb-4">
+                                <TabsTrigger value="table">Data Table</TabsTrigger>
+                                <TabsTrigger value="analysis">Analysis</TabsTrigger>
+                              </TabsList>
+                              
+                              <TabsContent value="table">
+                                <DatasetTableView 
+                                  datasetId={selectedDataset.id} 
+                                  versionId={selectedVersion}
+                                />
+                              </TabsContent>
+                              
+                              <TabsContent value="analysis">
+                                <div className="bg-white dark:bg-zinc-900 rounded-lg overflow-auto max-h-[600px]">
+                                  {exploreMutation.data?.profile ? (
+                                    <iframe 
+                                      srcDoc={exploreMutation.data.profile} 
+                                      title="Dataset Profile" 
+                                      className="w-full h-[600px] border-0"
+                                      sandbox="allow-scripts allow-same-origin"
+                                    />
+                                  ) : (
+                                    // Try to get profile from sessionStorage if exploreMutation doesn't have it
+                                    (() => {
+                                      const storedProfile = sessionStorage.getItem(`profile_${selectedDataset?.id}_${selectedVersion}`);
+                                      const isLoading = sessionStorage.getItem(`profile_loading_${selectedDataset?.id}_${selectedVersion}`);
+                                      const errorMessage = sessionStorage.getItem(`profile_error_${selectedDataset?.id}_${selectedVersion}`);
+                                      
+                                      if (storedProfile) {
+                                        // We have a profile, show it
+                                        return (
+                                          <iframe 
+                                            srcDoc={storedProfile} 
+                                            title="Dataset Profile" 
+                                            className="w-full h-[600px] border-0"
+                                            sandbox="allow-scripts allow-same-origin"
+                                          />
+                                        );
+                                      } else if (isLoading) {
+                                        // Profile generation is in progress
+                                        return (
+                                          <div className="flex flex-col items-center justify-center py-12">
+                                            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent motion-reduce:animate-[spin_1.5s_linear_infinite] mb-4"></div>
+                                            <p className="text-gray-500">Generating profile data...</p>
+                                          </div>
+                                        );
+                                      } else if (errorMessage) {
+                                        // Error occurred during profile generation
+                                        return (
+                                          <div className="p-6 text-center">
+                                            <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-500 mb-4">
+                                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z" />
+                                              </svg>
+                                            </div>
+                                            <h3 className="text-lg font-medium text-red-600 mb-2">Profile Generation Failed</h3>
+                                            <p className="text-sm text-gray-600 mb-4">{errorMessage}</p>
+                                            <Button 
+                                              variant="outline" 
+                                              onClick={() => {
+                                                // Clear error and retry
+                                                sessionStorage.removeItem(`profile_error_${selectedDataset?.id}_${selectedVersion}`);
+                                                
+                                                // Retry profile generation
+                                                if (selectedDataset && selectedVersion) {
+                                                  exploreMutation.mutate({
+                                                    datasetId: selectedDataset.id,
+                                                    versionId: selectedVersion,
+                                                    options: createProfileRequest('html')
+                                                  });
+                                                }
+                                              }}
+                                            >
+                                              Retry
+                                            </Button>
+                                          </div>
+                                        );
+                                      } else {
+                                        // No profile data available yet
+                                        return (
+                                          <div className="p-4 text-center text-muted-foreground">
+                                            No profile data available. Click the "Explore Data" button to generate a profile.
+                                          </div>
+                                        );
+                                      }
+                                    })()
+                                  )}
+                                </div>
+                              </TabsContent>
+                            </Tabs>
+                          )}
                         </div>
                       ) : (
                         <div className="py-8 text-center text-gray-500">

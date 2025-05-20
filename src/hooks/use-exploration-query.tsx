@@ -121,3 +121,15 @@ export function createExploreOptions(
   };
 }
 
+/**
+ * Simplified helper to create profile-only request
+ */
+export function createProfileRequest(format: string = 'html'): ExploreRequest {
+  return {
+    format,
+    run_profiling: true,
+    operations: [],
+    sheet: null
+  };
+}
+
