@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
   Database,
   GitBranch,
@@ -20,13 +19,19 @@ import {
   History,
   Eye,
   Plus,
+  Text,
 } from "lucide-react"
 import { DatasetSearchBar } from "@/components/dataset-search"
 import { useDatasetVersions, useExploreDataset } from "@/hooks"
+import { useDataTable } from "@/hooks/use-data-table"
 import { createProfileRequest } from "@/hooks/use-exploration-query"
 import type { Dataset, DatasetVersion } from "@/lib/api/types"
 import { format } from "date-fns"
 import { useQuery } from "@tanstack/react-query"
+import { DataTable } from "@/components/data-table/data-table"
+import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header"
+import { DataTableToolbar } from "@/components/data-table/data-table-toolbar"
+import React from "react"
 
 const analysisOptions = [
   {
@@ -49,13 +54,13 @@ const analysisOptions = [
   },
 ]
 
-const timelineSteps = [
-  { id: 1, title: "Select Dataset", subtitle: "Choose data source", icon: Database },
-  { id: 2, title: "Select Version", subtitle: "Pick dataset version", icon: GitBranch },
-  { id: 3, title: "Explore Data", subtitle: "Preview and examine", icon: Search },
-  { id: 4, title: "Choose Analysis", subtitle: "Select analysis type", icon: BarChart3 },
-  { id: 5, title: "View Results", subtitle: "Review insights", icon: FileText },
-]
+const stepInfo = {
+  1: { title: "Select Dataset", subtitle: "Choose data source" },
+  2: { title: "Select Version", subtitle: "Pick dataset version" },
+  3: { title: "Explore Data", subtitle: "Preview and examine" },
+  4: { title: "Choose Analysis", subtitle: "Select analysis type" },
+  5: { title: "View Results", subtitle: "Review insights" },
+}
 
 export function ExplorationPage() {
   const [currentStep, setCurrentStep] = useState(1)
@@ -65,14 +70,13 @@ export function ExplorationPage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [showPreviousAnalyses, setShowPreviousAnalyses] = useState(false)
   const [viewingPrevious, setViewingPrevious] = useState(false)
-  const [selectedPreviousAnalysis, setSelectedPreviousAnalysis] = useState<number | null>(null)
 
   // Query hooks
   const { data: versions, isLoading: versionsLoading } = useDatasetVersions(
     selectedDataset?.id || 0,
     { enabled: !!selectedDataset }
   )
-  const exploreMutation = useExploreDataset<any>()
+  const exploreMutation = useExploreDataset<{ profile?: string }>()
   
   // Fetch table data for preview with direct API call
   const { data: tableData } = useQuery({
@@ -142,8 +146,7 @@ export function ExplorationPage() {
     }
   }
 
-  const handleViewPreviousAnalysis = (analysisId: number) => {
-    setSelectedPreviousAnalysis(analysisId)
+  const handleViewPreviousAnalysis = () => {
     setViewingPrevious(true)
     setCurrentStep(5)
   }
@@ -162,13 +165,6 @@ export function ExplorationPage() {
     setIsAnalyzing(false)
     setShowPreviousAnalyses(false)
     setViewingPrevious(false)
-    setSelectedPreviousAnalysis(null)
-  }
-
-  const getStepStatus = (stepId: number) => {
-    if (stepId < currentStep) return "completed"
-    if (stepId === currentStep) return "active"
-    return "pending"
   }
 
   const shouldShowStep = (stepId: number) => {
@@ -194,169 +190,68 @@ export function ExplorationPage() {
     quality: "98.5%",
   }] : []
 
+  // Create columns for the data table
+  const columns = React.useMemo(() => {
+    if (!tableData?.headers) return []
+    
+    return tableData.headers.map((header: string) => ({
+      id: header,
+      accessorKey: header,
+      header: ({ column }: any) => (
+        <DataTableColumnHeader column={column} title={header} />
+      ),
+      cell: ({ row }: any) => {
+        const value = row.getValue(header)
+        return <div className="text-xs min-w-[100px] px-2">{value?.toString() || '-'}</div>
+      },
+      size: 150,
+      minSize: 100,
+      meta: {
+        label: header,
+        placeholder: `Search ${header}...`,
+        variant: "text" as const,
+        icon: Text,
+      },
+      enableColumnFilter: false,
+      enableSorting: true,
+    }))
+  }, [tableData?.headers])
+
+  // Initialize data table
+  const { table } = useDataTable({
+    data: tableData?.rows?.slice(0, 5) || [],
+    columns,
+    pageCount: 1,
+    initialState: {
+      pagination: { 
+        pageIndex: 0,
+        pageSize: 5 
+      },
+    },
+    getRowId: (_row: unknown, index: number) => index.toString(),
+  })
+
   return (
     <div className="min-h-screen">
-      <div className="flex flex-col lg:flex-row gap-6">
-        {/* Timeline Section - Now as a card on top or side */}
-        <div className="lg:w-80 w-full">
-          <Card className="bg-white/90 backdrop-blur-sm">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg">Exploration Progress</CardTitle>
-              <CardDescription className="text-sm">Follow the steps to analyze your data</CardDescription>
-            </CardHeader>
-            <CardContent className="p-4">
-              {/* Timeline Steps */}
-              <div className="space-y-4">
-                {timelineSteps.map((step, index) => {
-                  const status = getStepStatus(step.id)
-                  const Icon = step.icon
-
-                  return (
-                    <motion.div
-                      key={step.id}
-                      className="relative"
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                    >
-                      <div className="flex items-start gap-3">
-                        {/* Icon */}
-                        <div className="relative flex-shrink-0">
-                          <motion.div
-                            className={`w-10 h-10 rounded-lg flex items-center justify-center border-2 transition-all duration-500 ${
-                              status === "completed"
-                                ? "bg-green-500 border-green-500 text-white"
-                                : status === "active"
-                                  ? "bg-blue-500 border-blue-500 text-white"
-                                  : "bg-white border-slate-300 text-slate-400"
-                            }`}
-                          >
-                            {status === "completed" ? (
-                              <motion.div
-                                initial={{ scale: 0 }}
-                                animate={{ scale: 1 }}
-                                transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                              >
-                                <Check className="w-4 h-4" />
-                              </motion.div>
-                            ) : (
-                              <Icon className="w-4 h-4" />
-                            )}
-                          </motion.div>
-
-                          {/* Connector Line */}
-                          {index < timelineSteps.length - 1 && (
-                            <motion.div
-                              className={`absolute top-10 left-1/2 w-0.5 h-8 -translate-x-1/2 transition-colors duration-500 ${
-                                status === "completed" ? "bg-green-500" : "bg-slate-200"
-                              }`}
-                              initial={{ scaleY: 0 }}
-                              animate={{ scaleY: status === "completed" ? 1 : 0 }}
-                              transition={{ duration: 0.5, delay: 0.2 }}
-                            />
-                          )}
-                        </div>
-
-                        {/* Content */}
-                        <div className="flex-1 min-w-0 pb-6">
-                          <h3
-                            className={`font-semibold text-sm transition-colors duration-300 ${
-                              status === "active"
-                                ? "text-blue-600"
-                                : status === "completed"
-                                  ? "text-green-600"
-                                  : "text-slate-600"
-                            }`}
-                          >
-                            {step.title}
-                          </h3>
-                          <p className="text-xs text-slate-500 mt-0.5">{step.subtitle}</p>
-
-                          {/* Step Summary */}
-                          {status === "completed" && (
-                            <motion.div
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: "auto" }}
-                              transition={{ duration: 0.3, delay: 0.2 }}
-                              className="mt-2"
-                            >
-                              {step.id === 1 && selectedDataset && (
-                                <div className="text-xs text-green-700 bg-green-50 rounded-md p-2">
-                                  <div className="font-medium">{selectedDataset.name}</div>
-                                  <div className="text-green-600">
-                                    {formatByteSize(selectedDataset.file_size)} • {selectedDataset.file_type?.toUpperCase()}
-                                  </div>
-                                </div>
-                              )}
-                              {step.id === 2 && selectedVersion && (
-                                <div className="text-xs text-green-700 bg-green-50 rounded-md p-2">
-                                  <div className="font-medium">Version {selectedVersion.version_number}</div>
-                                  <div className="text-green-600">
-                                    {format(new Date(selectedVersion.ingestion_timestamp), 'MMM d, yyyy')}
-                                  </div>
-                                </div>
-                              )}
-                              {step.id === 3 && currentStep > 3 && (
-                                <div className="text-xs text-green-700 bg-green-50 rounded-md p-2">
-                                  <div className="font-medium">Data Explored</div>
-                                  <div className="text-green-600">
-                                    {tableData?.headers?.length || 0} columns
-                                  </div>
-                                </div>
-                              )}
-                              {step.id === 4 && selectedAnalysis && (
-                                <div className="text-xs text-green-700 bg-green-50 rounded-md p-2">
-                                  <div className="font-medium">
-                                    {analysisOptions.find((a) => a.id === selectedAnalysis)?.name}
-                                  </div>
-                                  <div className="text-green-600">Analysis selected</div>
-                                </div>
-                              )}
-                              {step.id === 5 && currentStep >= 5 && (
-                                <div className="text-xs text-green-700 bg-green-50 rounded-md p-2">
-                                  <div className="font-medium">
-                                    {viewingPrevious ? "Previous Results" : "Analysis Complete"}
-                                  </div>
-                                  <div className="text-green-600">Ready to view</div>
-                                </div>
-                              )}
-                            </motion.div>
-                          )}
-                        </div>
-                      </div>
-                    </motion.div>
-                  )
-                })}
-              </div>
-
-              {/* Reset Button */}
-              {currentStep > 1 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.5 }}
-                  className="mt-4 pt-4 border-t border-slate-200"
-                >
-                  <Button variant="outline" onClick={resetFlow} className="w-full text-xs">
-                    <Database className="w-3 h-3 mr-2" />
-                    Start New Analysis
-                  </Button>
-                </motion.div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Main Content */}
-        <div className="flex-1">
+      <div className="w-full">
           {/* Header */}
           <div className="mb-6">
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">
-              {timelineSteps.find((s) => s.id === currentStep)?.title || "Data Exploration Flow"}
-            </h2>
-            <p className="text-slate-600">
-              {timelineSteps.find((s) => s.id === currentStep)?.subtitle || "Discover insights from your datasets"}
-            </p>
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900 mb-2">
+                  {stepInfo[currentStep as keyof typeof stepInfo]?.title || "Data Exploration Flow"}
+                </h2>
+                <p className="text-slate-600">
+                  {stepInfo[currentStep as keyof typeof stepInfo]?.subtitle || "Discover insights from your datasets"}
+                </p>
+              </div>
+              {currentStep > 1 && (
+                <Button variant="outline" onClick={resetFlow} size="sm">
+                  <Database className="w-4 h-4 mr-2" />
+                  Start New Analysis
+                </Button>
+              )}
+            </div>
           </div>
 
           <div className="space-y-6">
@@ -613,7 +508,7 @@ export function ExplorationPage() {
                           >
                             <Card
                               className="h-full cursor-pointer hover:shadow-md transition-all duration-200 border hover:border-purple-300 hover:bg-purple-50/50"
-                              onClick={() => handleViewPreviousAnalysis(analysis.id)}
+                              onClick={() => handleViewPreviousAnalysis()}
                             >
                               <CardContent className="p-4">
                                 <div className="flex items-start justify-between mb-2">
@@ -684,7 +579,7 @@ export function ExplorationPage() {
                             5 rows preview
                           </Badge>
                           <Badge variant="secondary" className="text-xs">
-                            {selectedVersion?.sheets?.[0]?.columns?.length || 0} columns
+                            {tableData?.headers?.length || 0} columns
                           </Badge>
                           {currentStep === 3 && (
                             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
@@ -705,40 +600,18 @@ export function ExplorationPage() {
 
                     <CardContent>
                       <motion.div
-                        className="border rounded-lg overflow-hidden"
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.2 }}
                       >
                         {tableData?.headers ? (
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                {tableData.headers.slice(0, 5).map((header: string) => (
-                                  <TableHead key={header} className="text-xs">
-                                    {header}
-                                  </TableHead>
-                                ))}
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {tableData.rows.slice(0, 5).map((row: Record<string, unknown>, index: number) => (
-                                <motion.tr
-                                  key={index}
-                                  initial={{ opacity: 0, x: -10 }}
-                                  animate={{ opacity: 1, x: 0 }}
-                                  transition={{ delay: index * 0.05 }}
-                                  className="hover:bg-slate-50"
-                                >
-                                  {tableData.headers.slice(0, 5).map((header: string) => (
-                                    <TableCell key={header} className="text-xs">
-                                      {row[header]?.toString() || '-'}
-                                    </TableCell>
-                                  ))}
-                                </motion.tr>
-                              ))}
-                            </TableBody>
-                          </Table>
+                          <div className="w-full overflow-x-auto rounded-md border">
+                            <div className="min-w-full">
+                              <DataTable table={table} className="min-w-max">
+                                <DataTableToolbar table={table} />
+                              </DataTable>
+                            </div>
+                          </div>
                         ) : (
                           <div className="p-8 text-center text-muted-foreground">
                             Loading preview data...
@@ -898,7 +771,7 @@ export function ExplorationPage() {
                           <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent motion-reduce:animate-[spin_1.5s_linear_infinite] mb-4"></div>
                           <p className="text-gray-500">Generating analysis...</p>
                         </div>
-                      ) : exploreMutation.data?.profile || viewingPrevious ? (
+                      ) : (exploreMutation.data && typeof exploreMutation.data === 'object' && 'profile' in exploreMutation.data && (exploreMutation.data as { profile?: string }).profile) || viewingPrevious ? (
                         <motion.div
                           className="border rounded-lg bg-white shadow-sm overflow-hidden"
                           initial={{ opacity: 0, y: 20 }}
@@ -906,7 +779,7 @@ export function ExplorationPage() {
                           transition={{ delay: 0.4 }}
                         >
                           <iframe 
-                            srcDoc={exploreMutation.data?.profile || sessionStorage.getItem(`profile_${selectedDataset?.id}_${selectedVersion?.id}`) || ''} 
+                            srcDoc={(exploreMutation.data && typeof exploreMutation.data === 'object' && 'profile' in exploreMutation.data ? (exploreMutation.data as { profile?: string }).profile : null) || sessionStorage.getItem(`profile_${selectedDataset?.id}_${selectedVersion?.id}`) || ''} 
                             title="Dataset Profile" 
                             className="w-full h-[600px] border-0"
                             sandbox="allow-scripts allow-same-origin"
@@ -932,7 +805,7 @@ export function ExplorationPage() {
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                               {[
                                 { label: "Total Rows", value: tableData?.total_count || "N/A", color: "blue" },
-                                { label: "Columns", value: selectedVersion?.sheets?.[0]?.columns?.length || 0, color: "green" },
+                                { label: "Columns", value: tableData?.headers?.length || 0, color: "green" },
                                 { label: "Data Quality", value: "98.5%", color: "purple" },
                                 { label: "File Size", value: formatByteSize(selectedVersion?.file_size), color: "orange" },
                               ].map((stat, index) => (
@@ -994,7 +867,6 @@ export function ExplorationPage() {
               )}
             </AnimatePresence>
           </div>
-        </div>
       </div>
 
       {/* Loading Overlay */}
