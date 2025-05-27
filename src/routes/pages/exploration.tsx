@@ -19,18 +19,21 @@ import {
   History,
   Eye,
   Plus,
-  Text,
 } from "lucide-react"
 import { DatasetSearchBar } from "@/components/dataset-search"
 import { useDatasetVersions, useExploreDataset } from "@/hooks"
-import { useDataTable } from "@/hooks/use-data-table"
 import { createProfileRequest } from "@/hooks/use-exploration-query"
 import type { Dataset, DatasetVersion } from "@/lib/api/types"
 import { format } from "date-fns"
 import { useQuery } from "@tanstack/react-query"
-import { DataTable } from "@/components/data-table/data-table"
-import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header"
-import { DataTableToolbar } from "@/components/data-table/data-table-toolbar"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import React from "react"
 
 const analysisOptions = [
@@ -191,46 +194,12 @@ export function ExplorationPage() {
     quality: "98.5%",
   }] : []
 
-  // Create columns for the data table
-  const columns = React.useMemo(() => {
-    if (!tableData?.headers) return []
-    
-    return tableData.headers.map((header: string) => ({
-      id: header,
-      accessorKey: header,
-      header: ({ column }: { column: { id: string; toggleSorting: (desc?: boolean) => void } }) => (
-        <DataTableColumnHeader column={column} title={header} />
-      ),
-      cell: ({ row }: { row: { getValue: (id: string) => unknown } }) => {
-        const value = row.getValue(header)
-        return <div className="text-xs min-w-[100px] px-2">{value?.toString() || '-'}</div>
-      },
-      size: 150,
-      minSize: 100,
-      meta: {
-        label: header,
-        placeholder: `Search ${header}...`,
-        variant: "text" as const,
-        icon: Text,
-      },
-      enableColumnFilter: false,
-      enableSorting: true,
-    }))
-  }, [tableData?.headers])
-
-  // Initialize data table
-  const { table } = useDataTable({
-    data: tableData?.rows?.slice(0, 5) || [],
-    columns,
-    pageCount: 1,
-    initialState: {
-      pagination: { 
-        pageIndex: 0,
-        pageSize: 5 
-      },
-    },
-    getRowId: (_row: unknown, index: number) => index.toString(),
-  })
+  // Format cell value based on type
+  const formatCellValue = (value: any) => {
+    if (value === null || value === undefined) return '-'
+    if (typeof value === 'object') return JSON.stringify(value)
+    return value.toString()
+  }
 
   return (
     <div className="min-h-[calc(100vh-4rem)] -mx-4 lg:-mx-6 -mt-0 lg:-mt-0">
@@ -733,9 +702,28 @@ export function ExplorationPage() {
                             <div className="w-full overflow-hidden">
                               <div className="overflow-x-auto bg-gradient-to-b from-white to-slate-50/50 dark:from-slate-900 dark:to-slate-950/50">
                                 <div className="min-w-full rounded-b-lg shadow-inner">
-                                  <DataTable table={table} className="min-w-max border-0">
-                                    <DataTableToolbar table={table} className="px-4 py-2 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm" />
-                                  </DataTable>
+                                  <Table className="min-w-max">
+                                    <TableHeader className="bg-slate-50/50 dark:bg-slate-800/50">
+                                      <TableRow>
+                                        {tableData.headers.map((header: string) => (
+                                          <TableHead key={header} className="font-medium text-xs">
+                                            {header}
+                                          </TableHead>
+                                        ))}
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {tableData.rows.slice(0, 5).map((row: Record<string, any>, rowIndex: number) => (
+                                        <TableRow key={rowIndex}>
+                                          {tableData.headers.map((header: string) => (
+                                            <TableCell key={header} className="text-xs">
+                                              {formatCellValue(row[header])}
+                                            </TableCell>
+                                          ))}
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
                                 </div>
                               </div>
                             </div>

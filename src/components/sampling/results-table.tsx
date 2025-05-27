@@ -1,13 +1,9 @@
 import React from "react"
 import { motion } from "framer-motion"
-import { DataTable } from "@/components/data-table/data-table"
-import { DataTableAdvancedToolbar } from "@/components/data-table/data-table-advanced-toolbar"
-import { DataTableFilterList } from "@/components/data-table/data-table-filter-list"
-import { DataTableSortList } from "@/components/data-table/data-table-sort-list"
-import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header"
-import { useDataTable } from "@/hooks/use-data-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import { Download, Copy, Text, Hash, Calendar, ToggleLeft } from "lucide-react"
 import type { SamplingResult } from "@/lib/api/types"
 
@@ -17,6 +13,12 @@ interface ResultsTableProps {
   method: string
   onDownload?: () => void
   onCopyToClipboard?: () => void
+  currentPage?: number
+  pageSize?: number
+  totalItems?: number
+  onPageChange?: (page: number) => void
+  onPageSizeChange?: (pageSize: number) => void
+  isLoading?: boolean
 }
 
 // Helper function to detect column type
@@ -49,77 +51,58 @@ function getColumnIcon(type: string) {
   }
 }
 
+// Helper function to format cell value
+function formatCellValue(value: any, type: string) {
+  if (value === null || value === undefined) return '-'
+  
+  if (type === "boolean") {
+    return (
+      <Badge variant={value ? "default" : "secondary"} className="text-xs">
+        {value ? "True" : "False"}
+      </Badge>
+    )
+  }
+  
+  if (type === "date" && value) {
+    return new Date(value).toLocaleDateString()
+  }
+  
+  return String(value)
+}
+
 export function ResultsTable({ 
   data, 
   outputName, 
   method,
   onDownload,
-  onCopyToClipboard
+  onCopyToClipboard,
+  currentPage = 1,
+  pageSize = 50,
+  totalItems,
+  onPageChange,
+  onPageSizeChange,
+  isLoading = false
 }: ResultsTableProps) {
   // Extract columns from the first row of data
   const columns = React.useMemo(() => {
     if (!data || data.length === 0) return []
-    
-    const firstRow = data[0]
-    return Object.keys(firstRow).map((key) => {
-      const columnValues = data.map(row => row[key])
-      const columnType = getColumnType(columnValues)
-      const Icon = getColumnIcon(columnType)
-      
-      return {
-        id: key,
-        accessorKey: key,
-        header: ({ column }: { column: { id: string; toggleSorting: (desc?: boolean) => void } }) => (
-          <DataTableColumnHeader column={column} title={key} />
-        ),
-        cell: ({ row }: { row: { getValue: (id: string) => unknown } }) => {
-          const value = row.getValue(key)
-          
-          // Format based on column type
-          if (columnType === "boolean") {
-            return (
-              <Badge variant={value ? "default" : "secondary"} className="text-xs">
-                {value ? "True" : "False"}
-              </Badge>
-            )
-          }
-          
-          if (columnType === "date" && value) {
-            return <div className="text-xs min-w-[100px] px-2">{new Date(value as string).toLocaleDateString()}</div>
-          }
-          
-          return <div className="text-xs min-w-[100px] px-2">{value?.toString() || '-'}</div>
-        },
-        size: 150,
-        minSize: 100,
-        meta: {
-          label: key,
-          placeholder: `Search ${key}...`,
-          variant: columnType,
-          icon: Icon,
-        },
-        enableColumnFilter: true,
-        enableSorting: true,
-      }
-    })
+    return Object.keys(data[0])
   }, [data])
+  
+  // Get column types
+  const columnTypes = React.useMemo(() => {
+    if (!data || data.length === 0) return {}
+    
+    const types: Record<string, string> = {}
+    columns.forEach(col => {
+      const values = data.map(row => row[col])
+      types[col] = getColumnType(values)
+    })
+    return types
+  }, [data, columns])
 
-  // Initialize data table with advanced features
-  const { table } = useDataTable({
-    data,
-    columns,
-    pageCount: Math.ceil(data.length / 10),
-    initialState: {
-      pagination: { 
-        pageIndex: 0,
-        pageSize: 10 
-      },
-    },
-    getRowId: (_row: unknown, index: number) => index.toString(),
-    // Enable advanced filtering
-    enableAdvancedFilter: true,
-  })
-
+  // Calculate total pages for server-side pagination
+  const totalPages = totalItems && pageSize ? Math.ceil(totalItems / pageSize) : 1
 
   if (!data || data.length === 0) {
     return (
@@ -147,8 +130,13 @@ export function ResultsTable({
                 {method} sampling
               </Badge>
               <Badge variant="secondary" className="text-xs">
-                {data.length} rows
+                {totalItems ? `${totalItems} total rows` : `${data.length} rows`}
               </Badge>
+              {totalItems && totalItems > pageSize && (
+                <Badge variant="secondary" className="text-xs">
+                  Page {currentPage} of {totalPages}
+                </Badge>
+              )}
               <Badge variant="secondary" className="text-xs">
                 {columns.length} columns
               </Badge>
@@ -181,14 +169,129 @@ export function ResultsTable({
         </div>
       </div>
 
-      {/* Data Table with Advanced Features */}
-      <div className="border rounded-lg overflow-hidden bg-white dark:bg-slate-900 shadow-sm">
-        <DataTable table={table} className="min-w-full">
-          <DataTableAdvancedToolbar table={table} className="px-4 py-2 bg-slate-50/50 dark:bg-slate-900/50 border-b">
-            <DataTableFilterList table={table} />
-            <DataTableSortList table={table} />
-          </DataTableAdvancedToolbar>
-        </DataTable>
+      {/* Simple Table */}
+      <div className="border rounded-lg overflow-hidden bg-white dark:bg-slate-900 shadow-sm relative">
+        {/* Loading overlay */}
+        {isLoading && (
+          <div className="absolute inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm z-10 flex items-center justify-center">
+            <div className="flex items-center gap-2">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
+              <span className="text-sm text-gray-600 dark:text-gray-400">Loading...</span>
+            </div>
+          </div>
+        )}
+        
+        <ScrollArea className="w-full">
+          <Table>
+            <TableHeader className="bg-slate-50 dark:bg-slate-800">
+              <TableRow>
+                {columns.map((column) => {
+                  const Icon = getColumnIcon(columnTypes[column])
+                  return (
+                    <TableHead key={column} className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <Icon className="w-4 h-4 text-gray-500" />
+                        <span>{column}</span>
+                      </div>
+                    </TableHead>
+                  )
+                })}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.map((row, rowIndex) => (
+                <TableRow key={rowIndex}>
+                  {columns.map((column) => (
+                    <TableCell key={column} className="text-sm">
+                      {formatCellValue(row[column], columnTypes[column])}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
+        
+        {/* Custom Server-side Pagination */}
+        {totalItems && totalItems > pageSize && onPageChange && (
+          <div className="flex items-center justify-between px-4 py-3 border-t">
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                Showing{' '}
+                <span className="font-medium">{(currentPage - 1) * pageSize + 1}</span>
+                {' '}-{' '}
+                <span className="font-medium">
+                  {Math.min(currentPage * pageSize, totalItems)}
+                </span>
+                {' '}of{' '}
+                <span className="font-medium">{totalItems}</span>
+                {' '}results
+              </p>
+              {onPageSizeChange && (
+                <select
+                  value={pageSize}
+                  onChange={(e) => onPageSizeChange(Number(e.target.value))}
+                  className="ml-4 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value={10}>10 per page</option>
+                  <option value={25}>25 per page</option>
+                  <option value={50}>50 per page</option>
+                  <option value={100}>100 per page</option>
+                </select>
+              )}
+            </div>
+            
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onPageChange(currentPage - 1)}
+                disabled={currentPage <= 1 || isLoading}
+              >
+                Previous
+              </Button>
+              
+              {/* Page numbers */}
+              <div className="flex gap-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum
+                  if (totalPages <= 5) {
+                    pageNum = i + 1
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i
+                  } else {
+                    pageNum = currentPage - 2 + i
+                  }
+                  
+                  return (
+                    <Button
+                      key={pageNum}
+                      variant={pageNum === currentPage ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => onPageChange(pageNum)}
+                      disabled={isLoading}
+                      className="min-w-[40px]"
+                    >
+                      {pageNum}
+                    </Button>
+                  )
+                })}
+              </div>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onPageChange(currentPage + 1)}
+                disabled={currentPage >= totalPages || isLoading}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </motion.div>
   )

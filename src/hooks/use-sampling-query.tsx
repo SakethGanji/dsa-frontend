@@ -19,16 +19,20 @@ export function useSampling(
   options?: Omit<UseMutationOptions<SamplingResult[], Error, {
     datasetId: number,
     versionId: number, 
-    request: SamplingRequest 
+    request: SamplingRequest,
+    page?: number,
+    pageSize?: number
   }, unknown>, 'mutationFn'>
 ) {
   return useMutation<SamplingResult[], Error, {
     datasetId: number,
     versionId: number, 
-    request: SamplingRequest 
+    request: SamplingRequest,
+    page?: number,
+    pageSize?: number
   }>({
-    mutationFn: ({ datasetId, versionId, request }) => 
-      api.sampling.execute(datasetId, versionId, request),
+    mutationFn: ({ datasetId, versionId, request, page, pageSize }) => 
+      api.sampling.execute(datasetId, versionId, request, page || 1, pageSize || 100),
     ...options,
   });
 }

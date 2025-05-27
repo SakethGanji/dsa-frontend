@@ -181,12 +181,26 @@ export const api = {
   
   // Sampling endpoints
   sampling: {
-    execute: (datasetId: number, versionId: number, request: SamplingRequest) =>
-      apiClient<SamplingResult[]>({
+    execute: async (datasetId: number, versionId: number, request: SamplingRequest, page?: number, pageSize?: number) => {
+      const response = await apiClient<SamplingResult[] | { data: SamplingResult[], pagination?: any }>({
         endpoint: `/sampling/${datasetId}/${versionId}/execute`,
         method: 'POST',
         data: request,
+        params: {
+          ...(page !== undefined && { page }),
+          ...(pageSize !== undefined && { page_size: pageSize })
+        },
         requireAuth: true,
-      }),
+      });
+      
+      // Handle both array response and paginated response
+      if (Array.isArray(response)) {
+        return response;
+      } else if (response && 'data' in response && Array.isArray(response.data)) {
+        return response.data;
+      }
+      
+      return [];
+    },
   },
 };

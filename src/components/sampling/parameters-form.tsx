@@ -171,10 +171,12 @@ export function ParametersForm({
               <Input
                 id="sample_size"
                 type="number"
-                placeholder="Total sample size"
+                step="any"
+                placeholder="Total sample size or percentage (e.g., 1000 or 0.1 for 10%)"
                 value={parameters.sample_size || ""}
-                onChange={(e) => setParameters({ ...parameters, sample_size: e.target.value ? parseInt(e.target.value) : undefined })}
+                onChange={(e) => setParameters({ ...parameters, sample_size: e.target.value ? parseFloat(e.target.value) : undefined })}
               />
+              <p className="text-xs text-muted-foreground">Enter a whole number for absolute size or decimal &lt; 1 for percentage</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="min_per_stratum">Min Per Stratum (Optional)</Label>
@@ -263,10 +265,11 @@ export function ParametersForm({
               <Input
                 id="sample_within_clusters"
                 type="number"
-                placeholder="Samples per cluster"
+                placeholder="Samples per cluster (leave empty for all)"
                 value={parameters.sample_within_clusters || ""}
                 onChange={(e) => setParameters({ ...parameters, sample_within_clusters: e.target.value ? parseInt(e.target.value) : undefined })}
               />
+              <p className="text-xs text-muted-foreground">Number of samples to take from each cluster, or leave empty to take all</p>
             </div>
           </>
         )
@@ -274,15 +277,25 @@ export function ParametersForm({
       case "custom":
         return (
           <div className="space-y-2">
-            <Label htmlFor="query">SQL Query *</Label>
+            <Label htmlFor="query">Custom Filter Expression *</Label>
             <Textarea
               id="query"
-              placeholder="Enter your custom SQL query"
+              placeholder="e.g., listed_in LIKE '%Action%' AND release_year >= 2015"
               className="min-h-[120px] font-mono text-sm"
               value={parameters.query || ""}
               onChange={(e) => setParameters({ ...parameters, query: e.target.value })}
             />
-            <p className="text-xs text-muted-foreground">Write a custom SQL query for complex sampling logic</p>
+            <p className="text-xs text-muted-foreground">
+              Write a WHERE clause condition for custom filtering. The expression will be applied as a filter to the dataset.
+            </p>
+            <div className="text-xs text-muted-foreground space-y-1">
+              <p className="font-medium">Examples:</p>
+              <ul className="list-disc list-inside space-y-0.5 text-[11px]">
+                <li><code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded">rating IN ('PG', 'PG-13') AND release_year &gt; 2010</code></li>
+                <li><code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded">listed_in LIKE '%Comedy%' OR listed_in LIKE '%Drama%'</code></li>
+                <li><code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded">CAST(REPLACE(duration, ' min', '') AS INTEGER) &gt; 90</code></li>
+              </ul>
+            </div>
           </div>
         )
 

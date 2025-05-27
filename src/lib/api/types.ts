@@ -225,3 +225,15 @@ export interface SamplingRequest {
 export interface SamplingResult {
   [key: string]: any;
 }
+
+export interface SamplingResponse {
+  data: SamplingResult[];
+  pagination?: {
+    page: number;
+    page_size: number;
+    total_items: number;
+    total_pages: number;
+    has_next: boolean;
+    has_previous: boolean;
+  };
+}

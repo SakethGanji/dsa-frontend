@@ -43,6 +43,11 @@ export function SamplingPage() {
   const [samplingResults, setSamplingResults] = useState<SamplingResult[]>([])
   const [lastRequest, setLastRequest] = useState<SamplingRequest | null>(null)
   const [compactView, setCompactView] = useState(false)
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(50)
+  const [totalItems, setTotalItems] = useState(0)
 
   // Query hooks
   const { data: versions, isLoading: versionsLoading } = useDatasetVersions(
@@ -52,14 +57,52 @@ export function SamplingPage() {
   
   const samplingMutation = useSampling({
     onSuccess: (data) => {
-      setSamplingResults(data)
-      setCurrentStep(5)
-      toast.success("Sampling completed successfully!")
+      if (!data || !Array.isArray(data) || data.length === 0) {
+        setSamplingResults([])
+        setCurrentStep(5)
+        toast.warning("Sampling completed but no results were returned")
+      } else {
+        setSamplingResults(data)
+        setCurrentStep(5)
+        // For demonstration, assume we have more data if we get a full page
+        // In a real implementation, the API should return total count
+        setTotalItems(data.length === pageSize ? data.length * 10 : data.length)
+        toast.success(`Sampling completed successfully! ${data.length} rows returned.`)
+      }
     },
     onError: (error) => {
       toast.error(`Sampling failed: ${error.message}`)
     },
   })
+  
+  // Function to handle page changes
+  const handlePageChange = (newPage: number) => {
+    if (!selectedDataset || !selectedVersion || !lastRequest) return
+    
+    setCurrentPage(newPage)
+    samplingMutation.mutate({
+      datasetId: selectedDataset.id,
+      versionId: selectedVersion.id,
+      request: lastRequest,
+      page: newPage,
+      pageSize: pageSize
+    })
+  }
+  
+  // Function to handle page size changes
+  const handlePageSizeChange = (newPageSize: number) => {
+    if (!selectedDataset || !selectedVersion || !lastRequest) return
+    
+    setPageSize(newPageSize)
+    setCurrentPage(1) // Reset to first page
+    samplingMutation.mutate({
+      datasetId: selectedDataset.id,
+      versionId: selectedVersion.id,
+      request: lastRequest,
+      page: 1,
+      pageSize: newPageSize
+    })
+  }
 
   // Fetch dataset columns for the form
   const { data: datasetInfo } = useQuery({
@@ -105,11 +148,18 @@ export function SamplingPage() {
   const handleSamplingSubmit = (request: SamplingRequest) => {
     if (!selectedDataset || !selectedVersion) return
     
+    // Reset pagination when starting a new sampling request
+    setCurrentPage(1)
+    setPageSize(50)
+    setTotalItems(0)
+    
     setLastRequest(request)
     samplingMutation.mutate({
       datasetId: selectedDataset.id,
       versionId: selectedVersion.id,
       request,
+      page: 1,
+      pageSize: 50
     })
   }
 
@@ -536,7 +586,7 @@ export function SamplingPage() {
 
             {/* Step 5: View Results */}
             <AnimatePresence>
-              {shouldShowStep(5) && samplingResults.length > 0 && (
+              {shouldShowStep(5) && samplingResults && samplingResults.length > 0 && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -581,12 +631,33 @@ export function SamplingPage() {
                         method={selectedMethod || ""}
                         onDownload={handleDownloadResults}
                         onCopyToClipboard={handleCopyToClipboard}
+                        currentPage={currentPage}
+                        pageSize={pageSize}
+                        totalItems={totalItems}
+                        onPageChange={handlePageChange}
+                        onPageSizeChange={handlePageSizeChange}
+                        isLoading={samplingMutation.isPending}
                       />
                     </CardContent>
                   </Card>
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {/* Debug: Show message when on step 5 but no results */}
+            {currentStep === 5 && (!samplingResults || samplingResults.length === 0) && (
+              <Card className="border-2 border-dashed border-gray-300 dark:border-gray-700">
+                <CardContent className="p-12 text-center">
+                  <FlaskConical className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                    Waiting for Results...
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    The sampling operation is processing. Results will appear here.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </div>
