@@ -198,10 +198,10 @@ export function ExplorationPage() {
     return tableData.headers.map((header: string) => ({
       id: header,
       accessorKey: header,
-      header: ({ column }: { column: any }) => (
+      header: ({ column }: { column: { id: string; toggleSorting: (desc?: boolean) => void } }) => (
         <DataTableColumnHeader column={column} title={header} />
       ),
-      cell: ({ row }: { row: any }) => {
+      cell: ({ row }: { row: { getValue: (id: string) => unknown } }) => {
         const value = row.getValue(header)
         return <div className="text-xs min-w-[100px] px-2">{value?.toString() || '-'}</div>
       },
@@ -339,24 +339,48 @@ export function ExplorationPage() {
                     )}
 
                     <CardContent className={compactView ? "p-3" : "pt-4"}>
-                      <div className="relative">
-                        <DatasetSearchBar onSelectDataset={handleDatasetSelect} />
-                        {selectedDataset && currentStep === 1 && (
-                          <motion.div
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="absolute right-2 top-2"
-                          >
-                            <Button
-                              size="sm"
-                              onClick={() => handleDatasetSelect(selectedDataset)}
-                              className="shadow-lg"
+                      {selectedDataset && currentStep > 1 ? (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border border-green-200 dark:border-green-800 rounded-lg p-4"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
+                                <Database className="w-5 h-5 text-green-600 dark:text-green-400" />
+                              </div>
+                              <div>
+                                <h4 className="font-semibold text-sm text-green-900 dark:text-green-100">{selectedDataset.name}</h4>
+                                <p className="text-xs text-green-700 dark:text-green-300">Dataset ID: {selectedDataset.id}</p>
+                              </div>
+                            </div>
+                            <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300 dark:bg-green-900 dark:text-green-300 dark:border-green-700">
+                              <Check className="w-3 h-3 mr-1" />
+                              Selected
+                            </Badge>
+                          </div>
+                        </motion.div>
+                      ) : (
+                        <div className="relative">
+                          <DatasetSearchBar onSelectDataset={handleDatasetSelect} />
+                          {selectedDataset && currentStep === 1 && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="absolute right-2 top-2"
                             >
-                              Continue <ChevronRight className="w-3 h-3 ml-1" />
-                            </Button>
-                          </motion.div>
-                        )}
-                      </div>
+                              <Button
+                                size="sm"
+                                onClick={() => handleDatasetSelect(selectedDataset)}
+                                className="shadow-lg"
+                              >
+                                Continue <ChevronRight className="w-3 h-3 ml-1" />
+                              </Button>
+                            </motion.div>
+                          )}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </motion.div>
