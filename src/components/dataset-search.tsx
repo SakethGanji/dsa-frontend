@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react" // Added useRef
 import { Input } from "@/components/ui/input"
 import { motion, AnimatePresence } from "framer-motion"
 import { Search, BarChart2, FileText, Download, Tag, Calendar } from "lucide-react"
@@ -56,6 +56,7 @@ export function DatasetSearchBar({ onSelectDataset }: { onSelectDataset?: (datas
   const [selectedDataset, setSelectedDataset] = useState<Dataset | null>(null)
   const debouncedQuery = useDebounce(query, 300)
   const { isAuthenticated } = useAuth()
+  const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null) // Added blur timeout ref
 
   useEffect(() => {
     if (!isFocused || !isAuthenticated) {
@@ -142,7 +143,18 @@ export function DatasetSearchBar({ onSelectDataset }: { onSelectDataset?: (datas
   }
 
   const handleFocus = () => {
+    if (blurTimeoutRef.current) {
+      clearTimeout(blurTimeoutRef.current);
+      blurTimeoutRef.current = null;
+    }
     setIsFocused(true);
+    setSelectedDataset(null); // Clear previous selection on focus
+  }
+
+  const handleBlur = () => {
+    blurTimeoutRef.current = setTimeout(() => {
+      setIsFocused(false);
+    }, 200);
   }
 
   // Map datasets to actions
@@ -171,7 +183,7 @@ export function DatasetSearchBar({ onSelectDataset }: { onSelectDataset?: (datas
               value={query}
               onChange={handleInputChange}
               onFocus={handleFocus}
-              onBlur={() => setTimeout(() => setIsFocused(false), 200)}
+              onBlur={handleBlur} // Changed to use the new handleBlur
               className="pl-3 pr-9 py-1.5 h-10 text-sm rounded-lg focus-visible:ring-offset-0"
             />
             <div className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4">
@@ -203,6 +215,7 @@ export function DatasetSearchBar({ onSelectDataset }: { onSelectDataset?: (datas
           <AnimatePresence>
             {isFocused && !selectedDataset && datasetActions.length > 0 && (
               <motion.div
+                key="dataset-list-container" // Added key
                 className="w-full border rounded-md shadow-lg overflow-hidden dark:border-gray-800 bg-white dark:bg-black mt-1"
                 variants={container}
                 initial="hidden"
@@ -281,6 +294,7 @@ export function DatasetSearchBar({ onSelectDataset }: { onSelectDataset?: (datas
             
             {isFocused && !loading && datasetActions.length === 0 && (
               <motion.div
+                key="no-datasets-message-container" // Added key
                 className="w-full border rounded-md shadow-lg overflow-hidden dark:border-gray-800 bg-white dark:bg-black mt-1 p-6 text-center"
                 variants={container}
                 initial="hidden"

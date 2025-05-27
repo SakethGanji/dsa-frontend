@@ -156,3 +156,84 @@ export interface PaginatedResponse<T> {
   limit: number;
   hasMore: boolean;
 }
+
+// Sampling types
+export type SamplingMethod = 'random' | 'stratified' | 'systematic' | 'cluster' | 'custom';
+
+export interface SamplingCondition {
+  column: string;
+  operator: '=' | '!=' | '>' | '<' | '>=' | '<=' | 'LIKE' | 'ILIKE' | 'IN' | 'NOT IN' | 'IS NULL' | 'IS NOT NULL';
+  value: any;
+}
+
+export interface SamplingFilters {
+  conditions: SamplingCondition[];
+  logic: 'AND' | 'OR';
+}
+
+export interface SamplingSelection {
+  columns?: string[] | null;
+  exclude_columns?: string[] | null;
+  order_by?: string | null;
+  order_desc?: boolean;
+  limit?: number | null;
+  offset?: number | null;
+}
+
+export interface RandomSamplingParams {
+  sample_size: number;
+  seed?: number;
+}
+
+export interface StratifiedSamplingParams {
+  strata_columns: string[];
+  sample_size?: number;
+  min_per_stratum?: number;
+  seed?: number;
+}
+
+export interface SystematicSamplingParams {
+  interval: number;
+  start?: number;
+}
+
+export interface ClusterSamplingParams {
+  cluster_column: string;
+  num_clusters: number;
+  sample_within_clusters?: number;
+}
+
+export interface CustomSamplingParams {
+  query: string;
+}
+
+export type SamplingParameters = 
+  | RandomSamplingParams 
+  | StratifiedSamplingParams 
+  | SystematicSamplingParams 
+  | ClusterSamplingParams 
+  | CustomSamplingParams;
+
+export interface SamplingRequest {
+  method: SamplingMethod;
+  parameters: SamplingParameters;
+  output_name: string;
+  filters?: SamplingFilters;
+  selection?: SamplingSelection;
+}
+
+export interface SamplingResult {
+  [key: string]: any;
+}
+
+export interface SamplingResponse {
+  data: SamplingResult[];
+  pagination?: {
+    page: number;
+    page_size: number;
+    total_items: number;
+    total_pages: number;
+    has_next: boolean;
+    has_previous: boolean;
+  };
+}

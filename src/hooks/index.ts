@@ -9,6 +9,10 @@ export * from './use-datasets-query';
 // Exploration hooks
 export * from './use-exploration-query';
 
+// Sampling hooks
+export * from './use-sampling-query';
+export * from './use-column-metadata';
+
 // Legacy hooks (kept for backwards compatibility)
 export * from './use-auth';
 export * from './use-datasets';

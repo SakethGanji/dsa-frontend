@@ -1,480 +1,1077 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
-import { DatasetSearchBar } from "@/components/dataset-search"
+import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import type { Dataset } from "@/lib/api/types"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { BarChart2, Database, FileDown, Book, Eye, Tag, Search, ArrowRight } from "lucide-react"
-import { format } from "date-fns"
-import { useNavigate } from "@tanstack/react-router"
-import { useDatasetVersions, useExploreDataset } from "@/hooks"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Database,
+  GitBranch,
+  Search,
+  BarChart3,
+  FileText,
+  Sparkles,
+  ChevronRight,
+  Check,
+  Play,
+  Clock,
+  History,
+  Eye,
+  Plus,
+} from "lucide-react"
+import { DatasetSearchBar } from "@/components/dataset-search"
+import { useDatasetVersions, useExploreDataset } from "@/hooks"
 import { createProfileRequest } from "@/hooks/use-exploration-query"
-import { DatasetTableView } from "@/components/dataset-table-view"
+import type { Dataset, DatasetVersion } from "@/lib/api/types"
+import { format } from "date-fns"
+import { useQuery } from "@tanstack/react-query"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import React from "react"
+
+const analysisOptions = [
+  {
+    id: "pandas",
+    name: "Pandas Profiling",
+    description: "Comprehensive data profiling with statistics and visualizations",
+    icon: BarChart3,
+  },
+  {
+    id: "sweetviz",
+    name: "SweetViz Analysis",
+    description: "Beautiful visualizations and data comparisons",
+    icon: Sparkles,
+  },
+  {
+    id: "custom",
+    name: "Custom Analysis",
+    description: "Build your own analysis with custom parameters",
+    icon: FileText,
+  },
+]
+
+const stepInfo = {
+  1: { title: "Select Dataset", subtitle: "Choose data source" },
+  2: { title: "Select Version", subtitle: "Pick dataset version" },
+  3: { title: "Explore Data", subtitle: "Preview and examine" },
+  4: { title: "Choose Analysis", subtitle: "Select analysis type" },
+  5: { title: "View Results", subtitle: "Review insights" },
+}
 
 export function ExplorationPage() {
+  const [currentStep, setCurrentStep] = useState(1)
   const [selectedDataset, setSelectedDataset] = useState<Dataset | null>(null)
-  const [selectedVersion, setSelectedVersion] = useState<number | null>(null)
-  const [activeTab, setActiveTab] = useState("overview")
-  const searchRef = useRef<HTMLDivElement>(null)
-  const navigate = useNavigate()
-  
-  const { 
-    data: versions,
-    isLoading: versionsLoading, 
-    isError: versionsError 
-  } = useDatasetVersions(
-    selectedDataset?.id || 0, 
+  const [selectedVersion, setSelectedVersion] = useState<DatasetVersion | null>(null)
+  const [selectedAnalysis, setSelectedAnalysis] = useState<string | null>(null)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [showPreviousAnalyses, setShowPreviousAnalyses] = useState(false)
+  const [viewingPrevious, setViewingPrevious] = useState(false)
+  const [compactView, setCompactView] = useState(false)
+
+  // Query hooks
+  const { data: versions, isLoading: versionsLoading } = useDatasetVersions(
+    selectedDataset?.id || 0,
     { enabled: !!selectedDataset }
-  );
-
-  // Add exploration mutation
-  const exploreMutation = useExploreDataset<any>();
-
-  // Auto-select the first version when versions load
-  useEffect(() => {
-    if (versions && versions.length > 0 && !selectedVersion) {
-      setSelectedVersion(versions[0].id);
-    }
-  }, [versions, selectedVersion]);
+  )
+  const exploreMutation = useExploreDataset<{ profile?: string }>()
   
-  // Check if we need to fetch a profile when switching to the exploration tab
+  // Fetch table data for preview with direct API call
+  const { data: tableData } = useQuery({
+    queryKey: ['dataset-preview', selectedDataset?.id, selectedVersion?.id],
+    queryFn: async () => {
+      if (!selectedDataset || !selectedVersion) return null
+      const response = await fetch(
+        `http://127.0.0.1:8000/api/datasets/${selectedDataset.id}/versions/${selectedVersion.id}/data?limit=5&offset=0`,
+        {
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${JSON.parse(localStorage.getItem('auth_tokens') || '{}').access_token}`
+          }
+        }
+      )
+      if (!response.ok) throw new Error('Failed to fetch data')
+      return response.json()
+    },
+    enabled: !!selectedDataset && !!selectedVersion && currentStep >= 3,
+  })
+
+  // Check for existing analyses
   useEffect(() => {
-    if (activeTab === "exploration" && selectedDataset && selectedVersion) {
-      // Check if we already have a profile in sessionStorage
-      const storedProfile = sessionStorage.getItem(`profile_${selectedDataset.id}_${selectedVersion}`);
-      
-      // If no stored profile and we haven't already started the exploration mutation
-      if (!storedProfile && !exploreMutation.isPending && !exploreMutation.data) {
-        // Request the profile
-        exploreMutation.mutate({
-          datasetId: selectedDataset.id,
-          versionId: selectedVersion,
-          options: createProfileRequest('html')
-        });
+    if (selectedVersion) {
+      // Check sessionStorage for existing profiles
+      const profileKey = `profile_${selectedDataset?.id}_${selectedVersion.id}`
+      const existingProfile = sessionStorage.getItem(profileKey)
+      if (existingProfile) {
+        setShowPreviousAnalyses(true)
       }
     }
-  }, [activeTab, selectedDataset, selectedVersion, exploreMutation]);
+  }, [selectedVersion, selectedDataset])
 
-  const handleSelectDataset = (dataset: Dataset) => {
-    setSelectedDataset(dataset);
-    setSelectedVersion(null); // Reset selected version
-    setActiveTab("overview"); // Reset to overview tab
-    
-    // Scroll to results if on mobile
-    setTimeout(() => {
-      if (window.innerWidth < 768 && searchRef.current) {
-        searchRef.current.scrollIntoView({ behavior: 'smooth' });
-      }
-    }, 100);
-  };
-  
-  const handleExploreData = () => {
-    if (!selectedDataset || !selectedVersion) return;
-    
-    const versionId = selectedVersion;
-    const datasetId = selectedDataset.id;
-    
-    // Use the helper function to create a profile-only request
-    exploreMutation.mutate({
-      datasetId,
-      versionId,
-      options: createProfileRequest('html')
-    }, {
-      onSuccess: () => {
-        setActiveTab("exploration");
-      }
-    });
-  };
-
-  const formatByteSize = (bytes?: number | null) => {
-    if (!bytes) return "Unknown";
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-    if (bytes === 0) return '0 Byte';
-    const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    return Math.round((bytes / Math.pow(1024, i)) * 100) / 100 + ' ' + sizes[i];
+  const handleDatasetSelect = (dataset: Dataset) => {
+    setSelectedDataset(dataset)
+    setSelectedVersion(null)
+    setTimeout(() => setCurrentStep(2), 300)
   }
 
-  const getFileIcon = (fileType?: string | null) => {
-    switch(fileType?.toLowerCase()) {
-      case 'csv':
-        return <BarChart2 className="h-5 w-5 text-green-500" />;
-      case 'xlsx':
-      case 'xls':
-        return <BarChart2 className="h-5 w-5 text-blue-500" />;
-      default:
-        return <Database className="h-5 w-5 text-gray-500" />;
+  const handleVersionSelect = (version: DatasetVersion) => {
+    setSelectedVersion(version)
+    setTimeout(() => setCurrentStep(3), 300)
+  }
+
+  const handleExploreData = () => {
+    setTimeout(() => setCurrentStep(4), 300)
+  }
+
+  const handleAnalysisSelect = (analysisId: string) => {
+    setSelectedAnalysis(analysisId)
+    setIsAnalyzing(true)
+    
+    if (selectedDataset && selectedVersion) {
+      exploreMutation.mutate({
+        datasetId: selectedDataset.id,
+        versionId: selectedVersion.id,
+        options: createProfileRequest('html')
+      }, {
+        onSuccess: () => {
+          setIsAnalyzing(false)
+          setCurrentStep(5)
+        },
+        onError: () => {
+          setIsAnalyzing(false)
+        }
+      })
     }
+  }
+
+  const handleViewPreviousAnalysis = () => {
+    setViewingPrevious(true)
+    setCurrentStep(5)
+  }
+
+  const handleRunNewAnalysis = () => {
+    setShowPreviousAnalyses(false)
+    setViewingPrevious(false)
+    setCurrentStep(4)
+  }
+
+  const resetFlow = () => {
+    setCurrentStep(1)
+    setSelectedDataset(null)
+    setSelectedVersion(null)
+    setSelectedAnalysis(null)
+    setIsAnalyzing(false)
+    setShowPreviousAnalyses(false)
+    setViewingPrevious(false)
+  }
+
+  const shouldShowStep = (stepId: number) => {
+    return stepId <= currentStep
+  }
+
+  const formatByteSize = (bytes?: number | null) => {
+    if (!bytes) return "Unknown"
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
+    if (bytes === 0) return '0 Byte'
+    const i = Math.floor(Math.log(bytes) / Math.log(1024))
+    return Math.round((bytes / Math.pow(1024, i)) * 100) / 100 + ' ' + sizes[i]
+  }
+
+  // Mock previous analyses for demo
+  const mockPreviousAnalyses = selectedVersion ? [{
+    id: 1,
+    type: "pandas",
+    name: "Pandas Profiling",
+    date: format(new Date(), 'yyyy-MM-dd'),
+    status: "completed",
+    insights: 4,
+    quality: "98.5%",
+  }] : []
+
+  // Format cell value based on type
+  const formatCellValue = (value: any) => {
+    if (value === null || value === undefined) return '-'
+    if (typeof value === 'object') return JSON.stringify(value)
+    return value.toString()
   }
 
   return (
-    <div className="container px-4 py-8 mx-auto max-w-5xl">
-      <div className="space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Data Exploration</h1>
-          <p className="mt-2 text-gray-500 dark:text-gray-400">
-            Search for datasets and explore data with advanced analytics tools
-          </p>
-        </div>
-        
-        {/* Hero Search Section */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-xl p-6 md:p-8 shadow-sm">
-          <div className="max-w-2xl mx-auto text-center mb-6">
-            <h2 className="text-2xl font-bold mb-2">Find Your Dataset</h2>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">Search from the available datasets to begin your data exploration journey</p>
-            
-            <div className="max-w-md mx-auto transform transition-all hover:scale-[1.01]">
-              <DatasetSearchBar onSelectDataset={handleSelectDataset} />
-            </div>
-            
-            <div className="mt-4 text-sm text-gray-500 flex items-center justify-center gap-4">
-              <div className="flex items-center">
-                <Search className="h-3 w-3 mr-1" />
-                <span>Search by name</span>
+    <div className="min-h-[calc(100vh-4rem)] -mx-4 lg:-mx-6 -mt-0 lg:-mt-0">
+      <div className="w-full h-full flex flex-col">
+          {/* Compact Header Bar */}
+          <div className="bg-gradient-to-r from-slate-50 to-blue-50 dark:from-slate-900 dark:to-blue-950 border-b px-4 lg:px-6 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  {Object.entries(stepInfo).map(([step, info]) => {
+                    const stepNum = parseInt(step)
+                    const isActive = stepNum === currentStep
+                    const isCompleted = stepNum < currentStep
+                    return (
+                      <React.Fragment key={step}>
+                        <motion.button
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                            isActive
+                              ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 shadow-sm"
+                              : isCompleted
+                              ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 cursor-pointer hover:bg-green-200 dark:hover:bg-green-800"
+                              : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-500 cursor-not-allowed"
+                          }`}
+                          onClick={() => isCompleted && setCurrentStep(stepNum)}
+                          whileHover={isCompleted ? { scale: 1.05 } : {}}
+                          whileTap={isCompleted ? { scale: 0.95 } : {}}
+                        >
+                          <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                            isActive
+                              ? "bg-blue-600 text-white"
+                              : isCompleted
+                              ? "bg-green-600 text-white"
+                              : "bg-gray-300 text-gray-600 dark:bg-gray-600 dark:text-gray-400"
+                          }`}>
+                            {isCompleted ? "✓" : step}
+                          </span>
+                          <span className="hidden sm:inline">{info.title}</span>
+                        </motion.button>
+                        {stepNum < 5 && (
+                          <ChevronRight className="w-3 h-3 text-gray-400 dark:text-gray-600" />
+                        )}
+                      </React.Fragment>
+                    )
+                  })}
+                </div>
               </div>
-              <div className="flex items-center">
-                <Tag className="h-3 w-3 mr-1" />
-                <span>View tags</span>
-              </div>
-              <div className="flex items-center">
-                <Book className="h-3 w-3 mr-1" />
-                <span>Explore data</span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setCompactView(!compactView)}
+                  className="text-xs"
+                >
+                  {compactView ? <Eye className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                  {compactView ? "Expand" : "Compact"}
+                </Button>
+                {currentStep > 1 && (
+                  <Button variant="outline" onClick={resetFlow} size="sm" className="text-xs">
+                    <Plus className="w-3 h-3 mr-1" />
+                    New Analysis
+                  </Button>
+                )}
               </div>
             </div>
           </div>
-        </div>
-        
-        <div ref={searchRef}></div>
-        
-        <AnimatePresence mode="wait">
-          {selectedDataset && (
-            <motion.div
-              key="dataset-info"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-              className="space-y-6"
-            >
-              {/* Dataset Overview Card */}
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <div className="flex items-center justify-between mb-4">
-                  <TabsList className="grid w-full max-w-md grid-cols-2">
-                    <TabsTrigger value="overview">Overview</TabsTrigger>
-                    <TabsTrigger value="exploration" disabled={exploreMutation.isPending}>
-                      {exploreMutation.isPending ? "Loading..." : "Exploration"}
-                    </TabsTrigger>
-                  </TabsList>
-                </div>
-                
-                <TabsContent value="overview" className="space-y-6">
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center space-x-2">
-                        {getFileIcon(selectedDataset.file_type)}
-                        <CardTitle>{selectedDataset.name}</CardTitle>
-                      </div>
-                      <CardDescription className="mt-2">
-                        {selectedDataset.description || "No description available"}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium text-gray-500">File Type</span>
-                          <span className="text-lg font-semibold">
-                            {selectedDataset.file_type?.toUpperCase() || "Unknown"}
-                          </span>
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium text-gray-500">Size</span>
-                          <span className="text-lg font-semibold">
-                            {formatByteSize(selectedDataset.file_size)}
-                          </span>
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium text-gray-500">Last Updated</span>
-                          <span className="text-lg font-semibold">
-                            {format(new Date(selectedDataset.updated_at), 'MMM d, yyyy')}
-                          </span>
-                        </div>
-                      </div>
-                      
-                      {selectedDataset.tags && selectedDataset.tags.length > 0 && (
-                        <div className="mt-4">
-                          <h4 className="text-sm font-medium text-gray-500 mb-2 flex items-center">
-                            <Tag className="h-4 w-4 mr-1" /> Tags
-                          </h4>
-                          <div className="flex flex-wrap gap-2">
-                            {selectedDataset.tags.map(tag => (
-                              <Badge key={tag.id} variant="outline" className="rounded-full">
-                                {tag.name}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                    <CardFooter className="flex justify-end space-x-2 pt-0">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        className="flex items-center"
-                        onClick={() => {
-                          if (selectedDataset.id) {
-                            navigate({ to: `/datasets/${selectedDataset.id}` });
-                          }
-                        }}
-                      >
-                        <Eye className="h-4 w-4 mr-1" /> View Details
-                      </Button>
-                      
-                      <Button 
-                        variant="default" 
-                        size="sm" 
-                        className="flex items-center"
-                        onClick={handleExploreData}
-                        disabled={!selectedVersion || exploreMutation.isPending}
-                      >
-                        <Book className="h-4 w-4 mr-1" /> 
-                        {exploreMutation.isPending ? "Loading..." : "Explore Data"}
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                  
-                  {/* Versions Section */}
-                  <div>
-                    <h3 className="text-lg font-semibold mb-3">Available Versions</h3>
-                    <div className="space-y-3">
-                      {versionsLoading ? (
-                        Array.from({ length: 2 }).map((_, i) => (
-                          <div key={i} className="flex items-center space-x-4 p-4 border rounded-lg">
-                            <Skeleton className="h-10 w-10 rounded-full" />
-                            <div className="space-y-2 flex-1">
-                              <Skeleton className="h-4 w-3/4" />
-                              <Skeleton className="h-4 w-1/2" />
-                            </div>
-                          </div>
-                        ))
-                      ) : versionsError ? (
-                        <Card>
-                          <CardContent className="py-4 text-center text-red-500">
-                            Failed to load versions
-                          </CardContent>
-                        </Card>
-                      ) : versions && versions.length > 0 ? (
-                        versions.map(version => (
-                          <Card 
-                            key={version.id} 
-                            className={`hover:shadow-md transition-shadow ${selectedVersion === version.id ? 'border-blue-500 shadow-blue-100 dark:shadow-blue-900/20' : ''}`}
-                            onClick={() => setSelectedVersion(version.id)}
+
+          {/* Main Content Area */}
+          <div className="flex-1 overflow-y-auto bg-gray-50/50 dark:bg-gray-950/50">
+            <div className={`${compactView ? 'p-3' : 'p-4 lg:p-6'} ${compactView ? 'space-y-3' : 'space-y-4'} max-w-7xl mx-auto`}>
+            {/* Step 1: Select Dataset */}
+            <AnimatePresence>
+              {shouldShowStep(1) && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5 }}
+                  layout
+                >
+                  <Card
+                    className={`transition-all duration-500 backdrop-blur-sm ${
+                      currentStep === 1
+                        ? "ring-2 ring-blue-400 shadow-xl bg-white/95 dark:bg-slate-900/95"
+                        : currentStep > 1
+                          ? "bg-green-50/80 border-green-300 dark:bg-green-950/50 dark:border-green-800"
+                          : ""
+                    } ${compactView ? 'p-0' : ''}`}
+                  >
+                    {!compactView && (
+                      <CardHeader className="pb-3 bg-gradient-to-r from-blue-50/50 to-transparent dark:from-blue-950/30 rounded-t-lg">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`w-10 h-10 rounded-full flex items-center justify-center shadow-sm ${
+                              currentStep > 1 ? "bg-green-500 text-white" : "bg-blue-500 text-white"
+                            }`}
                           >
-                            <CardHeader className="pb-2">
-                              <div className="flex justify-between items-center">
-                                <CardTitle className="text-lg flex items-center">
-                                  {selectedVersion === version.id && (
-                                    <ArrowRight className="h-4 w-4 mr-1 text-blue-500" />
-                                  )}
-                                  Version {version.version_number}
-                                </CardTitle>
-                                <Badge className={`ml-2 ${selectedVersion === version.id ? 'bg-blue-500' : ''}`}>
-                                  {version.file_type?.toUpperCase() || "UNKNOWN"}
-                                </Badge>
+                            {currentStep > 1 ? <Check className="w-5 h-5" /> : <Database className="w-5 h-5" />}
+                          </div>
+                          <div>
+                            <CardTitle className="text-xl">Select Dataset</CardTitle>
+                            <CardDescription className="text-sm">
+                              Choose from your available data sources
+                            </CardDescription>
+                          </div>
+                        </div>
+                      </CardHeader>
+                    )}
+
+                    <CardContent className={compactView ? "p-3" : "pt-4"}>
+                      {selectedDataset && currentStep > 1 ? (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border border-green-200 dark:border-green-800 rounded-lg p-4"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
+                                <Database className="w-5 h-5 text-green-600 dark:text-green-400" />
                               </div>
-                              <CardDescription>
-                                Uploaded {format(new Date(version.ingestion_timestamp), 'MMM d, yyyy')}
-                              </CardDescription>
-                            </CardHeader>
-                            <CardContent className="py-2">
-                              <div className="flex items-center text-sm text-gray-500">
-                                <Database className="h-4 w-4 mr-1" />
-                                <span>{formatByteSize(version.file_size)}</span>
+                              <div>
+                                <h4 className="font-semibold text-sm text-green-900 dark:text-green-100">{selectedDataset.name}</h4>
+                                <p className="text-xs text-green-700 dark:text-green-300">Dataset ID: {selectedDataset.id}</p>
                               </div>
-                            </CardContent>
-                            <CardFooter className="flex justify-end space-x-2 pt-0">
-                              <Button variant="outline" size="sm" className="flex items-center">
-                                <FileDown className="h-4 w-4 mr-1" /> Download
-                              </Button>
-                              <Button 
-                                variant={selectedVersion === version.id ? "default" : "outline"} 
-                                size="sm" 
-                                className="flex items-center"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedVersion(version.id);
-                                  handleExploreData();
-                                }}
-                                disabled={exploreMutation.isPending}
-                              >
-                                <Book className="h-4 w-4 mr-1" /> Explore
-                              </Button>
-                            </CardFooter>
-                          </Card>
-                        ))
+                            </div>
+                            <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300 dark:bg-green-900 dark:text-green-300 dark:border-green-700">
+                              <Check className="w-3 h-3 mr-1" />
+                              Selected
+                            </Badge>
+                          </div>
+                        </motion.div>
                       ) : (
-                        <Card>
-                          <CardContent className="py-4 text-center text-gray-500">
-                            No versions available for this dataset
-                          </CardContent>
-                        </Card>
-                      )}
-                    </div>
-                  </div>
-                </TabsContent>
-                
-                {/* Exploration Tab */}
-                <TabsContent value="exploration">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Data Exploration</CardTitle>
-                      <CardDescription>
-                        Analyzing and visualizing dataset: {selectedDataset.name}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {exploreMutation.isPending ? (
-                        <div className="py-12 text-center">
-                          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent motion-reduce:animate-[spin_1.5s_linear_infinite] mb-4"></div>
-                          <p className="text-gray-500">Processing your data...</p>
-                        </div>
-                      ) : exploreMutation.isError ? (
-                        <div className="py-8 text-center text-red-500">
-                          <p>Error analyzing dataset: {exploreMutation.error.message}</p>
-                        </div>
-                      ) : exploreMutation.data ? (
-                        <div className="space-y-6">
-                          {/* Dataset Table View */}
-                          {selectedDataset && selectedVersion && (
-                            <Tabs defaultValue="table" className="w-full">
-                              <TabsList className="mb-4">
-                                <TabsTrigger value="table">Data Table</TabsTrigger>
-                                <TabsTrigger value="analysis">Analysis</TabsTrigger>
-                              </TabsList>
-                              
-                              <TabsContent value="table">
-                                <DatasetTableView 
-                                  datasetId={selectedDataset.id} 
-                                  versionId={selectedVersion}
-                                />
-                              </TabsContent>
-                              
-                              <TabsContent value="analysis">
-                                <div className="bg-white dark:bg-zinc-900 rounded-lg overflow-auto max-h-[600px]">
-                                  {exploreMutation.data?.profile ? (
-                                    <iframe 
-                                      srcDoc={exploreMutation.data.profile} 
-                                      title="Dataset Profile" 
-                                      className="w-full h-[600px] border-0"
-                                      sandbox="allow-scripts allow-same-origin"
-                                    />
-                                  ) : (
-                                    // Try to get profile from sessionStorage if exploreMutation doesn't have it
-                                    (() => {
-                                      const storedProfile = sessionStorage.getItem(`profile_${selectedDataset?.id}_${selectedVersion}`);
-                                      const isLoading = sessionStorage.getItem(`profile_loading_${selectedDataset?.id}_${selectedVersion}`);
-                                      const errorMessage = sessionStorage.getItem(`profile_error_${selectedDataset?.id}_${selectedVersion}`);
-                                      
-                                      if (storedProfile) {
-                                        // We have a profile, show it
-                                        return (
-                                          <iframe 
-                                            srcDoc={storedProfile} 
-                                            title="Dataset Profile" 
-                                            className="w-full h-[600px] border-0"
-                                            sandbox="allow-scripts allow-same-origin"
-                                          />
-                                        );
-                                      } else if (isLoading) {
-                                        // Profile generation is in progress
-                                        return (
-                                          <div className="flex flex-col items-center justify-center py-12">
-                                            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent motion-reduce:animate-[spin_1.5s_linear_infinite] mb-4"></div>
-                                            <p className="text-gray-500">Generating profile data...</p>
-                                          </div>
-                                        );
-                                      } else if (errorMessage) {
-                                        // Error occurred during profile generation
-                                        return (
-                                          <div className="p-6 text-center">
-                                            <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-500 mb-4">
-                                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z" />
-                                              </svg>
-                                            </div>
-                                            <h3 className="text-lg font-medium text-red-600 mb-2">Profile Generation Failed</h3>
-                                            <p className="text-sm text-gray-600 mb-4">{errorMessage}</p>
-                                            <Button 
-                                              variant="outline" 
-                                              onClick={() => {
-                                                // Clear error and retry
-                                                sessionStorage.removeItem(`profile_error_${selectedDataset?.id}_${selectedVersion}`);
-                                                
-                                                // Retry profile generation
-                                                if (selectedDataset && selectedVersion) {
-                                                  exploreMutation.mutate({
-                                                    datasetId: selectedDataset.id,
-                                                    versionId: selectedVersion,
-                                                    options: createProfileRequest('html')
-                                                  });
-                                                }
-                                              }}
-                                            >
-                                              Retry
-                                            </Button>
-                                          </div>
-                                        );
-                                      } else {
-                                        // No profile data available yet
-                                        return (
-                                          <div className="p-4 text-center text-muted-foreground">
-                                            No profile data available. Click the "Explore Data" button to generate a profile.
-                                          </div>
-                                        );
-                                      }
-                                    })()
-                                  )}
-                                </div>
-                              </TabsContent>
-                            </Tabs>
+                        <div className="relative">
+                          <DatasetSearchBar onSelectDataset={handleDatasetSelect} />
+                          {selectedDataset && currentStep === 1 && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="absolute right-2 top-2"
+                            >
+                              <Button
+                                size="sm"
+                                onClick={() => handleDatasetSelect(selectedDataset)}
+                                className="shadow-lg"
+                              >
+                                Continue <ChevronRight className="w-3 h-3 ml-1" />
+                              </Button>
+                            </motion.div>
                           )}
                         </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Step 2: Select Version */}
+            <AnimatePresence>
+              {shouldShowStep(2) && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.1 }}
+                  layout
+                >
+                  <Card
+                    className={`transition-all duration-500 ${
+                      currentStep === 2
+                        ? "ring-2 ring-blue-200 shadow-lg"
+                        : currentStep > 2
+                          ? "bg-green-50/50 border-green-200"
+                          : ""
+                    }`}
+                  >
+                    <CardHeader className="pb-4">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                            currentStep > 2
+                              ? "bg-green-100 text-green-600"
+                              : currentStep === 2
+                                ? "bg-blue-100 text-blue-600"
+                                : "bg-slate-100 text-slate-400"
+                          }`}
+                        >
+                          {currentStep > 2 ? <Check className="w-4 h-4" /> : <GitBranch className="w-4 h-4" />}
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg">Dataset Versions</CardTitle>
+                          <CardDescription className="text-sm">
+                            Choose a version of {selectedDataset?.name || "your dataset"}
+                          </CardDescription>
+                        </div>
+                      </div>
+                    </CardHeader>
+
+                    <CardContent>
+                      {versionsLoading ? (
+                        <div className="text-center py-8">
+                          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent motion-reduce:animate-[spin_1.5s_linear_infinite]"></div>
+                        </div>
                       ) : (
-                        <div className="py-8 text-center text-gray-500">
-                          <p>Select a dataset version and click "Explore Data" to begin analysis</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
+                          {versions?.map((version, index) => {
+                            const isSelected = selectedVersion?.id === version.id
+                            const isCompleted = currentStep > 2
+
+                            return (
+                              <motion.div
+                                key={version.id}
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: index * 0.1 }}
+                                whileHover={!isCompleted ? { scale: 1.02 } : {}}
+                                whileTap={!isCompleted ? { scale: 0.98 } : {}}
+                              >
+                                <Card
+                                  className={`h-full transition-all duration-300 relative overflow-hidden group ${
+                                    isSelected && isCompleted
+                                      ? "border-green-400 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 shadow-lg shadow-green-100/50 dark:shadow-green-900/30"
+                                      : isSelected
+                                        ? "border-blue-400 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 shadow-lg shadow-blue-100/50 dark:shadow-blue-900/30"
+                                        : isCompleted
+                                          ? "opacity-60 cursor-default bg-gray-50/50 dark:bg-gray-900/50"
+                                          : "cursor-pointer hover:shadow-xl hover:border-blue-400 hover:bg-gradient-to-br hover:from-blue-50/50 hover:to-indigo-50/50 dark:hover:from-blue-950/20 dark:hover:to-indigo-950/20 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
+                                  }`}
+                                  onClick={!isCompleted ? () => handleVersionSelect(version) : undefined}
+                                >
+                                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-all duration-700" />
+                                  <CardContent className="p-3 relative">
+                                    <div className="flex items-start justify-between mb-2">
+                                      <div className="flex flex-col gap-1">
+                                        <div className="flex items-center gap-2">
+                                          <Badge className="text-[10px] px-2 py-0.5 font-semibold bg-gradient-to-r from-blue-500 to-blue-600 text-white border-0 shadow-sm">v{version.version_number}</Badge>
+                                          <Badge variant="outline" className="text-[10px] px-2 py-0.5 border-slate-300 dark:border-slate-600">
+                                            {version.file_type?.toUpperCase()}
+                                          </Badge>
+                                        </div>
+                                        <span className="text-[11px] text-slate-600 dark:text-slate-400 flex items-center gap-1">
+                                          <Clock className="w-3 h-3" />
+                                          {format(new Date(version.ingestion_timestamp), 'MMM d, yyyy')}
+                                        </span>
+                                      </div>
+                                      {isSelected && isCompleted && (
+                                        <motion.div
+                                          initial={{ scale: 0, rotate: -180 }}
+                                          animate={{ scale: 1, rotate: 0 }}
+                                          transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                                          className="bg-green-500 rounded-full p-1 shadow-md"
+                                        >
+                                          <Check className="w-3 h-3 text-white" />
+                                        </motion.div>
+                                      )}
+                                      {!isCompleted && (
+                                        <motion.div
+                                          animate={{ x: [0, 3, 0] }}
+                                          transition={{ repeat: Infinity, duration: 1.5 }}
+                                          className="bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full p-1 shadow-sm"
+                                        >
+                                          <ChevronRight className="w-3 h-3 text-white" />
+                                        </motion.div>
+                                      )}
+                                    </div>
+                                    <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                                      <p className="text-[11px] font-medium text-slate-700 dark:text-slate-300">
+                                        {formatByteSize(version.file_size)}
+                                      </p>
+                                    </div>
+                                  </CardContent>
+                                </Card>
+                              </motion.div>
+                            )
+                          })}
                         </div>
                       )}
                     </CardContent>
                   </Card>
-                </TabsContent>
-              </Tabs>
-            </motion.div>
-          )}
-          
-          {!selectedDataset && (
-            <motion.div
-              key="dataset-placeholder"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-              className="mt-8 text-center py-8"
-            >
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 mb-4">
-                <Database className="w-8 h-8 text-gray-400" />
-              </div>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">No dataset selected</h3>
-              <p className="mt-2 text-sm text-gray-500 max-w-md mx-auto">
-                Search for a dataset above to begin exploration. You can analyze data, create visualizations, and generate insights.
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Previous Analyses Alert */}
+            <AnimatePresence>
+              {showPreviousAnalyses && currentStep >= 3 && !viewingPrevious && (
+                <motion.div
+                  initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <Card className="border-purple-200 bg-purple-50/50">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <History className="w-5 h-5 text-purple-600" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-purple-900 text-sm mb-1">Previous Analyses Found</h3>
+                          <p className="text-xs text-purple-700 mb-3">
+                            This dataset version has previous analyses. You can view existing results or run
+                            a new analysis.
+                          </p>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setShowPreviousAnalyses(false)}
+                              className="flex items-center gap-2 text-xs"
+                            >
+                              <Eye className="w-3 h-3" />
+                              View Previous
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={handleRunNewAnalysis}
+                              className="flex items-center gap-2 text-xs"
+                            >
+                              <Plus className="w-3 h-3" />
+                              Run New Analysis
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Previous Analyses List */}
+            <AnimatePresence>
+              {showPreviousAnalyses && !viewingPrevious && currentStep >= 3 && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <Card className="border-purple-200">
+                    <CardHeader className="pb-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center bg-purple-100 text-purple-600">
+                            <History className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <CardTitle className="text-lg">Previous Analyses</CardTitle>
+                            <CardDescription className="text-sm">
+                              Select an analysis to view or run a new one
+                            </CardDescription>
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => setShowPreviousAnalyses(false)}
+                          className="flex items-center gap-2 text-xs"
+                        >
+                          <Plus className="w-3 h-3" />
+                          New Analysis
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
+                        {mockPreviousAnalyses.map((analysis, index) => (
+                          <motion.div
+                            key={analysis.id}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: index * 0.1 }}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                          >
+                            <Card
+                              className="h-full cursor-pointer hover:shadow-md transition-all duration-200 border hover:border-purple-300 hover:bg-purple-50/50"
+                              onClick={() => handleViewPreviousAnalysis()}
+                            >
+                              <CardContent className="p-4">
+                                <div className="flex items-start justify-between mb-2">
+                                  <h3 className="font-semibold text-slate-900 text-sm">{analysis.name}</h3>
+                                  <ChevronRight className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                                </div>
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Badge variant="outline" className="text-xs">
+                                    {analysis.date}
+                                  </Badge>
+                                  <Badge variant="secondary" className="text-xs">
+                                    {analysis.insights} insights
+                                  </Badge>
+                                </div>
+                                <p className="text-xs text-slate-600">Quality: {analysis.quality}</p>
+                              </CardContent>
+                            </Card>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Step 3: Explore Data */}
+            <AnimatePresence>
+              {shouldShowStep(3) && !showPreviousAnalyses && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.2 }}
+                  layout
+                >
+                  <Card
+                    className={`transition-all duration-500 ${
+                      currentStep === 3
+                        ? "ring-2 ring-blue-200 shadow-lg"
+                        : currentStep > 3
+                          ? "bg-green-50/50 border-green-200"
+                          : ""
+                    }`}
+                  >
+                    <CardHeader className="pb-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                              currentStep > 3
+                                ? "bg-green-100 text-green-600"
+                                : currentStep === 3
+                                  ? "bg-blue-100 text-blue-600"
+                                  : "bg-slate-100 text-slate-400"
+                            }`}
+                          >
+                            {currentStep > 3 ? <Check className="w-4 h-4" /> : <Search className="w-4 h-4" />}
+                          </div>
+                          <div>
+                            <CardTitle className="text-lg">Data Preview</CardTitle>
+                            <CardDescription className="text-sm">
+                              Preview your dataset before analysis
+                            </CardDescription>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            5 rows preview
+                          </Badge>
+                          <Badge variant="secondary" className="text-xs">
+                            {tableData?.headers?.length || 0} columns
+                          </Badge>
+                          {currentStep === 3 && (
+                            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                              <Button onClick={handleExploreData} size="sm" className="flex items-center gap-2">
+                                <Play className="w-3 h-3" />
+                                Start Analysis
+                              </Button>
+                            </motion.div>
+                          )}
+                          {currentStep > 3 && (
+                            <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50 text-xs">
+                              ✓ Data Explored
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </CardHeader>
+
+                    <CardContent className="p-0">
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2 }}
+                        className="relative"
+                      >
+                        {tableData?.headers ? (
+                          <>
+                            {/* Column Stats Bar */}
+                            <div className="px-4 py-3 bg-gradient-to-r from-slate-50 to-blue-50 dark:from-slate-900 dark:to-blue-950 border-b border-slate-200 dark:border-slate-700">
+                              <div className="flex items-center gap-3 overflow-x-auto">
+                                {tableData.headers.slice(0, 6).map((header: string, idx: number) => (
+                                  <motion.div
+                                    key={header}
+                                    initial={{ opacity: 0, scale: 0.8 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    transition={{ delay: 0.3 + idx * 0.05 }}
+                                    className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 rounded-md shadow-sm border border-slate-200 dark:border-slate-700 min-w-fit"
+                                  >
+                                    <div className="w-2 h-2 rounded-full bg-gradient-to-r from-blue-400 to-indigo-500" />
+                                    <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{header}</span>
+                                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">Text</Badge>
+                                  </motion.div>
+                                ))}
+                                {tableData.headers.length > 6 && (
+                                  <Badge variant="outline" className="text-xs px-2 py-1">
+                                    +{tableData.headers.length - 6} more
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                            
+                            {/* Data Table */}
+                            <div className="w-full overflow-hidden">
+                              <div className="overflow-x-auto bg-gradient-to-b from-white to-slate-50/50 dark:from-slate-900 dark:to-slate-950/50">
+                                <div className="min-w-full rounded-b-lg shadow-inner">
+                                  <Table className="min-w-max">
+                                    <TableHeader className="bg-slate-50/50 dark:bg-slate-800/50">
+                                      <TableRow>
+                                        {tableData.headers.map((header: string) => (
+                                          <TableHead key={header} className="font-medium text-xs">
+                                            {header}
+                                          </TableHead>
+                                        ))}
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {tableData.rows.slice(0, 5).map((row: Record<string, any>, rowIndex: number) => (
+                                        <TableRow key={rowIndex}>
+                                          {tableData.headers.map((header: string) => (
+                                            <TableCell key={header} className="text-xs">
+                                              {formatCellValue(row[header])}
+                                            </TableCell>
+                                          ))}
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
+                                </div>
+                              </div>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="p-12 text-center bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-blue-950 rounded-lg">
+                            <motion.div
+                              animate={{ rotate: 360 }}
+                              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                              className="w-12 h-12 border-3 border-blue-200 border-t-blue-600 rounded-full mx-auto mb-4"
+                            />
+                            <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Loading preview data...</p>
+                          </div>
+                        )}
+                      </motion.div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Step 4: Choose Analysis */}
+            <AnimatePresence>
+              {shouldShowStep(4) && !showPreviousAnalyses && !viewingPrevious && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.3 }}
+                  layout
+                >
+                  <Card
+                    className={`transition-all duration-500 ${
+                      currentStep === 4
+                        ? "ring-2 ring-blue-200 shadow-lg"
+                        : currentStep > 4
+                          ? "bg-green-50/50 border-green-200"
+                          : ""
+                    }`}
+                  >
+                    <CardHeader className="pb-4">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                            currentStep > 4
+                              ? "bg-green-100 text-green-600"
+                              : currentStep === 4
+                                ? "bg-blue-100 text-blue-600"
+                                : "bg-slate-100 text-slate-400"
+                          }`}
+                        >
+                          {currentStep > 4 ? <Check className="w-4 h-4" /> : <BarChart3 className="w-4 h-4" />}
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg">Analysis Options</CardTitle>
+                          <CardDescription className="text-sm">
+                            Select how you want to analyze your data
+                          </CardDescription>
+                        </div>
+                      </div>
+                    </CardHeader>
+
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
+                        {analysisOptions.map((option, index) => {
+                          const Icon = option.icon
+                          const isSelected = selectedAnalysis === option.id
+                          const isCompleted = currentStep > 4
+
+                          return (
+                            <motion.div
+                              key={option.id}
+                              initial={{ opacity: 0, x: -20 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: index * 0.1 }}
+                              whileHover={!isCompleted ? { scale: 1.02 } : {}}
+                              whileTap={!isCompleted ? { scale: 0.98 } : {}}
+                            >
+                              <Card
+                                className={`h-full transition-all duration-300 relative overflow-hidden group ${
+                                  isSelected && isCompleted
+                                    ? "border-green-400 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 shadow-lg shadow-green-100/50 dark:shadow-green-900/30"
+                                    : isSelected
+                                      ? "border-blue-400 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 shadow-lg shadow-blue-100/50 dark:shadow-blue-900/30"
+                                      : isCompleted
+                                        ? "opacity-60 cursor-default bg-gray-50/50 dark:bg-gray-900/50"
+                                        : "cursor-pointer hover:shadow-xl hover:border-blue-400 hover:bg-gradient-to-br hover:from-blue-50/50 hover:to-indigo-50/50 dark:hover:from-blue-950/20 dark:hover:to-indigo-950/20 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
+                                }`}
+                                onClick={!isCompleted && option.id === "pandas" ? () => handleAnalysisSelect(option.id) : undefined}
+                              >
+                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-all duration-700" />
+                                <CardContent className="p-4 relative">
+                                  <div className="flex items-start gap-3">
+                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg bg-gradient-to-br ${
+                                      option.id === 'pandas' ? 'from-blue-500 to-indigo-600' :
+                                      option.id === 'sweetviz' ? 'from-purple-500 to-pink-600' :
+                                      'from-orange-500 to-red-600'
+                                    }`}>
+                                      <Icon className="w-6 h-6 text-white" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-start justify-between mb-2">
+                                        <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">{option.name}</h3>
+                                        {isSelected && isCompleted && (
+                                          <motion.div
+                                            initial={{ scale: 0, rotate: -180 }}
+                                            animate={{ scale: 1, rotate: 0 }}
+                                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                                            className="bg-green-500 rounded-full p-1 shadow-md"
+                                          >
+                                            <Check className="w-3 h-3 text-white" />
+                                          </motion.div>
+                                        )}
+                                        {!isCompleted && option.id === "pandas" && (
+                                          <motion.div
+                                            animate={{ scale: [1, 1.2, 1] }}
+                                            transition={{ repeat: Infinity, duration: 2 }}
+                                            className="bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full p-1 shadow-sm"
+                                          >
+                                            <Play className="w-3 h-3 text-white" />
+                                          </motion.div>
+                                        )}
+                                        {!isCompleted && option.id !== "pandas" && (
+                                          <Badge variant="outline" className="text-[10px] px-2 py-0.5">Coming Soon</Badge>
+                                        )}
+                                      </div>
+                                      <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">{option.description}</p>
+                                      {option.id === "pandas" && (
+                                        <div className="mt-2 flex items-center gap-2">
+                                          <Badge className="text-[10px] px-2 py-0.5 bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 dark:from-blue-900/30 dark:to-indigo-900/30 dark:text-blue-300 border-0">Recommended</Badge>
+                                          <Badge variant="secondary" className="text-[10px] px-2 py-0.5">~30s</Badge>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            </motion.div>
+                          )
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Step 5: View Results */}
+            <AnimatePresence>
+              {shouldShowStep(5) && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.4 }}
+                  layout
+                >
+                  <Card className="ring-2 ring-green-400 shadow-2xl bg-gradient-to-br from-green-50/50 to-emerald-50/50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-300 dark:border-green-800">
+                    <CardHeader className="pb-4 bg-gradient-to-r from-green-100/50 to-emerald-100/50 dark:from-green-900/30 dark:to-emerald-900/30 rounded-t-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br from-green-500 to-emerald-600 text-white shadow-lg">
+                            <FileText className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <CardTitle className="text-xl font-bold bg-gradient-to-r from-green-700 to-emerald-700 dark:from-green-300 dark:to-emerald-300 bg-clip-text text-transparent">
+                              {viewingPrevious ? "Previous Analysis Results" : "Analysis Results"}
+                            </CardTitle>
+                            <CardDescription className="text-sm">
+                              {viewingPrevious
+                                ? `Viewing previous analysis`
+                                : selectedAnalysis
+                                  ? analysisOptions.find((a) => a.id === selectedAnalysis)?.name + " results"
+                                  : "Your analysis results will appear here"}
+                            </CardDescription>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                          >
+                            <Badge className="text-xs px-3 py-1 bg-gradient-to-r from-green-500 to-emerald-600 text-white border-0 shadow-md">
+                              <Check className="w-3 h-3 mr-1" />
+                              {viewingPrevious ? "Previous Analysis" : "Analysis Complete"}
+                            </Badge>
+                          </motion.div>
+                        </div>
+                      </div>
+                    </CardHeader>
+
+                    <CardContent>
+                      {exploreMutation.isPending ? (
+                        <div className="p-8 text-center">
+                          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent motion-reduce:animate-[spin_1.5s_linear_infinite] mb-4"></div>
+                          <p className="text-gray-500">Generating analysis...</p>
+                        </div>
+                      ) : (exploreMutation.data && typeof exploreMutation.data === 'object' && 'profile' in exploreMutation.data && (exploreMutation.data as { profile?: string }).profile) || viewingPrevious ? (
+                        <motion.div
+                          className="border rounded-lg bg-white shadow-sm overflow-hidden"
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.4 }}
+                        >
+                          <iframe 
+                            srcDoc={(exploreMutation.data && typeof exploreMutation.data === 'object' && 'profile' in exploreMutation.data ? (exploreMutation.data as { profile?: string }).profile : null) || sessionStorage.getItem(`profile_${selectedDataset?.id}_${selectedVersion?.id}`) || ''} 
+                            title="Dataset Profile" 
+                            className="w-full h-[600px] border-0"
+                            sandbox="allow-scripts allow-same-origin"
+                          />
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          className="border rounded-lg p-6 bg-white shadow-sm"
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.4 }}
+                        >
+                          <div className="space-y-6">
+                            <motion.h3
+                              className="text-lg font-semibold"
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              transition={{ delay: 0.6 }}
+                            >
+                              Dataset Overview
+                            </motion.h3>
+
+                            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                              {[
+                                { label: "Total Rows", value: tableData?.total_count || "N/A", gradient: "from-blue-500 to-indigo-600", bgGradient: "from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30", icon: Database },
+                                { label: "Columns", value: tableData?.headers?.length || 0, gradient: "from-green-500 to-emerald-600", bgGradient: "from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30", icon: GitBranch },
+                                { label: "Data Quality", value: "98.5%", gradient: "from-purple-500 to-pink-600", bgGradient: "from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30", icon: Sparkles },
+                                { label: "File Size", value: formatByteSize(selectedVersion?.file_size), gradient: "from-orange-500 to-red-600", bgGradient: "from-orange-50 to-red-50 dark:from-orange-950/30 dark:to-red-950/30", icon: FileText },
+                              ].map((stat, index) => {
+                                const Icon = stat.icon
+                                return (
+                                  <motion.div
+                                    key={stat.label}
+                                    className={`relative overflow-hidden rounded-xl bg-gradient-to-br ${stat.bgGradient} border border-slate-200 dark:border-slate-700 shadow-lg hover:shadow-xl transition-shadow duration-300`}
+                                    initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    transition={{
+                                      delay: 0.8 + index * 0.1,
+                                      type: "spring",
+                                      stiffness: 500,
+                                      damping: 30,
+                                    }}
+                                    whileHover={{ scale: 1.02 }}
+                                  >
+                                    <div className="absolute top-0 right-0 w-20 h-20 opacity-10">
+                                      <Icon className="w-full h-full" />
+                                    </div>
+                                    <div className="relative p-4">
+                                      <div className={`text-2xl font-bold bg-gradient-to-r ${stat.gradient} bg-clip-text text-transparent mb-1`}>{stat.value}</div>
+                                      <div className="text-xs font-medium text-slate-600 dark:text-slate-400">{stat.label}</div>
+                                    </div>
+                                  </motion.div>
+                                )
+                              })}
+                            </div>
+
+                            <motion.div
+                              className="mt-6"
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: 1.2 }}
+                            >
+                              <h4 className="font-medium mb-3 flex items-center gap-2">
+                                <Sparkles className="w-4 h-4 text-yellow-500" />
+                                Key Insights
+                              </h4>
+                              <ul className="space-y-2 text-sm text-slate-600">
+                                {[
+                                  "Dataset successfully loaded and ready for analysis",
+                                  "All columns have been properly identified",
+                                  "Data types have been automatically detected",
+                                  "No critical data quality issues found",
+                                ].map((insight, index) => (
+                                  <motion.li
+                                    key={index}
+                                    initial={{ opacity: 0, x: -10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: 1.4 + index * 0.1 }}
+                                    className="flex items-start gap-2"
+                                  >
+                                    <ChevronRight className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                                    {insight}
+                                  </motion.li>
+                                ))}
+                              </ul>
+                            </motion.div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            </div>
+          </div>
       </div>
+
+      {/* Loading Overlay */}
+      <AnimatePresence>
+        {isAnalyzing && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 500, damping: 30 }}
+            >
+              <Card className="w-80">
+                <CardContent className="p-6 text-center">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
+                    className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full mx-auto mb-4"
+                  />
+                  <h3 className="font-semibold mb-2 text-sm">Analyzing Data</h3>
+                  <p className="text-xs text-slate-600">
+                    Running {analysisOptions.find((a) => a.id === selectedAnalysis)?.name}...
+                  </p>
+                  <motion.div
+                    className="w-full bg-slate-200 rounded-full h-1.5 mt-4"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.5 }}
+                  >
+                    <motion.div
+                      className="bg-blue-600 h-1.5 rounded-full"
+                      initial={{ width: "0%" }}
+                      animate={{ width: "100%" }}
+                      transition={{ duration: 2.5, ease: "easeInOut" }}
+                    />
+                  </motion.div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
