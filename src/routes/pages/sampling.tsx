@@ -481,7 +481,7 @@ export function SamplingPage() {
 
             {/* Step 4: Configure Parameters */}
             <AnimatePresence>
-              {shouldShowStep(4) && selectedMethod && (
+              {shouldShowStep(4) && selectedMethod && selectedDataset && selectedVersion && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -522,6 +522,8 @@ export function SamplingPage() {
                     <CardContent>
                       <ParametersForm
                         method={selectedMethod}
+                        datasetId={selectedDataset.id}
+                        versionId={selectedVersion.id}
                         datasetColumns={datasetInfo?.headers || []}
                         onSubmit={handleSamplingSubmit}
                         isLoading={samplingMutation.isPending}

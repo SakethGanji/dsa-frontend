@@ -5,15 +5,23 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
-import { Play } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Play, Settings, Filter, TableProperties } from "lucide-react"
+import { ColumnSelector } from "./column-selector"
+import { RowFilter } from "./row-filter"
+import { useQuery } from "@tanstack/react-query"
 import type { 
   SamplingMethod, 
   SamplingRequest,
+  SamplingFilters,
+  SamplingSelection
 } from "@/lib/api/types"
 
 interface ParametersFormProps {
   method: SamplingMethod
+  datasetId: number
+  versionId: number
   datasetColumns?: string[]
   onSubmit: (request: SamplingRequest) => void
   isLoading?: boolean
@@ -21,12 +29,38 @@ interface ParametersFormProps {
 
 export function ParametersForm({ 
   method, 
+  datasetId,
+  versionId,
   datasetColumns = [],
   onSubmit,
   isLoading = false
 }: ParametersFormProps) {
   const [outputName, setOutputName] = useState("")
-  const [parameters, setParameters] = useState<Record<string, any>>({})
+  const [parameters, setParameters] = useState<any>({})
+  const [filters, setFilters] = useState<SamplingFilters | undefined>()
+  const [selectedColumns, setSelectedColumns] = useState<string[]>([])
+  const [orderBy, setOrderBy] = useState<string | null>(null)
+  const [orderDesc, setOrderDesc] = useState(false)
+  const [activeTab, setActiveTab] = useState("parameters")
+
+  // Fetch column metadata
+  const { data: columnMetadata } = useQuery({
+    queryKey: ['sampling-columns', datasetId, versionId],
+    queryFn: async () => {
+      const response = await fetch(
+        `http://127.0.0.1:8000/api/sampling/${datasetId}/${versionId}/columns`,
+        {
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${JSON.parse(localStorage.getItem('auth_tokens') || '{}').access_token}`
+          }
+        }
+      )
+      if (!response.ok) throw new Error('Failed to fetch column metadata')
+      return response.json()
+    },
+    enabled: !!datasetId && !!versionId,
+  })
 
   useEffect(() => {
     // Reset parameters when method changes
@@ -35,10 +69,19 @@ export function ParametersForm({
   }, [method])
 
   const handleSubmit = () => {
+    // Build selection object
+    const selection: SamplingSelection = {
+      columns: selectedColumns.length > 0 ? selectedColumns : null,
+      order_by: orderBy,
+      order_desc: orderDesc
+    }
+
     const request: SamplingRequest = {
       method,
       parameters,
       output_name: outputName,
+      filters,
+      selection
     }
 
     onSubmit(request)
@@ -78,21 +121,50 @@ export function ParametersForm({
         return (
           <>
             <div className="space-y-2">
-              <Label htmlFor="strata_columns">Strata Columns *</Label>
-              <Select
-                value={parameters.strata_columns?.join(",") || ""}
-                onValueChange={(value) => setParameters({ ...parameters, strata_columns: value.split(",").filter(Boolean) })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select columns for stratification" />
-                </SelectTrigger>
-                <SelectContent>
-                  {datasetColumns.map((col) => (
-                    <SelectItem key={col} value={col}>{col}</SelectItem>
+              <Label>Strata Columns *</Label>
+              <div className="border rounded-md p-3 space-y-2">
+                <div className="flex flex-wrap gap-2 min-h-[38px]">
+                  {parameters.strata_columns?.map((col) => (
+                    <Badge key={col} variant="secondary" className="gap-1">
+                      {col}
+                      <button
+                        type="button"
+                        onClick={() => setParameters({ 
+                          ...parameters, 
+                          strata_columns: parameters.strata_columns?.filter(c => c !== col) 
+                        })}
+                        className="ml-1 hover:text-destructive"
+                      >
+                        ×
+                      </button>
+                    </Badge>
                   ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">Columns to group data by</p>
+                  {(!parameters.strata_columns || parameters.strata_columns.length === 0) && (
+                    <span className="text-muted-foreground text-sm">Select columns for stratification</span>
+                  )}
+                </div>
+                <Select
+                  value=""
+                  onValueChange={(value) => {
+                    const currentColumns = parameters.strata_columns || []
+                    if (!currentColumns.includes(value)) {
+                      setParameters({ ...parameters, strata_columns: [...currentColumns, value] })
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Add column..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {datasetColumns
+                      .filter(col => !parameters.strata_columns?.includes(col))
+                      .map((col) => (
+                        <SelectItem key={col} value={col}>{col}</SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <p className="text-xs text-muted-foreground">Select multiple columns to group data by for stratified sampling</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="sample_size">Sample Size (Optional)</Label>
@@ -113,6 +185,17 @@ export function ParametersForm({
                 value={parameters.min_per_stratum || ""}
                 onChange={(e) => setParameters({ ...parameters, min_per_stratum: e.target.value ? parseInt(e.target.value) : undefined })}
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="seed">Random Seed (Optional)</Label>
+              <Input
+                id="seed"
+                type="number"
+                placeholder="Enter seed for reproducibility"
+                value={parameters.seed || ""}
+                onChange={(e) => setParameters({ ...parameters, seed: e.target.value ? parseInt(e.target.value) : undefined })}
+              />
+              <p className="text-xs text-muted-foreground">Set a seed for reproducible stratified sampling</p>
             </div>
           </>
         )
@@ -229,28 +312,86 @@ export function ParametersForm({
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Sampling Parameters</CardTitle>
-          <CardDescription>Configure parameters for {method} sampling</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="output_name">Output Name *</Label>
-            <Input
-              id="output_name"
-              placeholder="Enter a name for the sampled dataset"
-              value={outputName}
-              onChange={(e) => setOutputName(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">A unique name to identify this sample</p>
-          </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="parameters">
+            <Settings className="h-4 w-4 mr-2" />
+            Parameters
+          </TabsTrigger>
+          <TabsTrigger value="columns">
+            <TableProperties className="h-4 w-4 mr-2" />
+            Columns
+          </TabsTrigger>
+          <TabsTrigger value="filters">
+            <Filter className="h-4 w-4 mr-2" />
+            Filters
+          </TabsTrigger>
+          <TabsTrigger value="output">
+            Output Name
+          </TabsTrigger>
+        </TabsList>
 
-          <Separator />
+        <TabsContent value="parameters">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Sampling Parameters</CardTitle>
+              <CardDescription>Configure parameters for {method} sampling</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {renderParameterInputs()}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-          {renderParameterInputs()}
-        </CardContent>
-      </Card>
+        <TabsContent value="columns">
+          <ColumnSelector
+            columns={columnMetadata?.columns || datasetColumns}
+            columnTypes={columnMetadata?.column_types || {}}
+            nullCounts={columnMetadata?.null_counts || {}}
+            sampleValues={columnMetadata?.sample_values || {}}
+            totalRows={columnMetadata?.total_rows || 0}
+            selectedColumns={selectedColumns}
+            onColumnsChange={setSelectedColumns}
+            orderBy={orderBy}
+            orderDesc={orderDesc}
+            onOrderChange={(col, desc) => {
+              setOrderBy(col)
+              setOrderDesc(desc)
+            }}
+          />
+        </TabsContent>
+
+        <TabsContent value="filters">
+          <RowFilter
+            columns={columnMetadata?.columns || datasetColumns}
+            columnTypes={columnMetadata?.column_types || {}}
+            sampleValues={columnMetadata?.sample_values || {}}
+            filters={filters}
+            onFiltersChange={setFilters}
+          />
+        </TabsContent>
+
+        <TabsContent value="output">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Output Configuration</CardTitle>
+              <CardDescription>Name your sampled dataset</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="output_name">Output Name *</Label>
+                <Input
+                  id="output_name"
+                  placeholder="Enter a name for the sampled dataset"
+                  value={outputName}
+                  onChange={(e) => setOutputName(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">A unique name to identify this sample</p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       <div className="flex justify-end">
         <Button
