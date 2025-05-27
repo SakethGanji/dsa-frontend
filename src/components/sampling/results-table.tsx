@@ -1,12 +1,14 @@
 import React from "react"
 import { motion } from "framer-motion"
 import { DataTable } from "@/components/data-table/data-table"
+import { DataTableAdvancedToolbar } from "@/components/data-table/data-table-advanced-toolbar"
+import { DataTableFilterList } from "@/components/data-table/data-table-filter-list"
+import { DataTableSortList } from "@/components/data-table/data-table-sort-list"
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header"
-import { DataTableToolbar } from "@/components/data-table/data-table-toolbar"
 import { useDataTable } from "@/hooks/use-data-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Download, Copy, Text } from "lucide-react"
+import { Download, Copy, Text, Hash, Calendar, ToggleLeft } from "lucide-react"
 import type { SamplingResult } from "@/lib/api/types"
 
 interface ResultsTableProps {
@@ -15,6 +17,36 @@ interface ResultsTableProps {
   method: string
   onDownload?: () => void
   onCopyToClipboard?: () => void
+}
+
+// Helper function to detect column type
+function getColumnType(values: any[]): "text" | "number" | "date" | "boolean" {
+  const sample = values.filter(v => v !== null && v !== undefined).slice(0, 10)
+  
+  if (sample.every(v => typeof v === 'boolean')) return "boolean"
+  
+  if (sample.every(v => typeof v === 'number' || !isNaN(Number(v)))) return "number"
+  
+  if (sample.every(v => {
+    const date = new Date(v)
+    return date instanceof Date && !isNaN(date.getTime()) && v.toString().match(/\d{4}-\d{2}-\d{2}/)
+  })) return "date"
+  
+  return "text"
+}
+
+// Helper function to get icon for column type
+function getColumnIcon(type: string) {
+  switch (type) {
+    case "number":
+      return Hash
+    case "date":
+      return Calendar
+    case "boolean":
+      return ToggleLeft
+    default:
+      return Text
+  }
 }
 
 export function ResultsTable({ 
@@ -29,30 +61,50 @@ export function ResultsTable({
     if (!data || data.length === 0) return []
     
     const firstRow = data[0]
-    return Object.keys(firstRow).map((key) => ({
-      id: key,
-      accessorKey: key,
-      header: ({ column }: { column: { id: string; toggleSorting: (desc?: boolean) => void } }) => (
-        <DataTableColumnHeader column={column} title={key} />
-      ),
-      cell: ({ row }: { row: { getValue: (id: string) => unknown } }) => {
-        const value = row.getValue(key)
-        return <div className="text-xs min-w-[100px] px-2">{value?.toString() || '-'}</div>
-      },
-      size: 150,
-      minSize: 100,
-      meta: {
-        label: key,
-        placeholder: `Search ${key}...`,
-        variant: "text" as const,
-        icon: Text,
-      },
-      enableColumnFilter: true,
-      enableSorting: true,
-    }))
+    return Object.keys(firstRow).map((key) => {
+      const columnValues = data.map(row => row[key])
+      const columnType = getColumnType(columnValues)
+      const Icon = getColumnIcon(columnType)
+      
+      return {
+        id: key,
+        accessorKey: key,
+        header: ({ column }: { column: { id: string; toggleSorting: (desc?: boolean) => void } }) => (
+          <DataTableColumnHeader column={column} title={key} />
+        ),
+        cell: ({ row }: { row: { getValue: (id: string) => unknown } }) => {
+          const value = row.getValue(key)
+          
+          // Format based on column type
+          if (columnType === "boolean") {
+            return (
+              <Badge variant={value ? "default" : "secondary"} className="text-xs">
+                {value ? "True" : "False"}
+              </Badge>
+            )
+          }
+          
+          if (columnType === "date" && value) {
+            return <div className="text-xs min-w-[100px] px-2">{new Date(value as string).toLocaleDateString()}</div>
+          }
+          
+          return <div className="text-xs min-w-[100px] px-2">{value?.toString() || '-'}</div>
+        },
+        size: 150,
+        minSize: 100,
+        meta: {
+          label: key,
+          placeholder: `Search ${key}...`,
+          variant: columnType,
+          icon: Icon,
+        },
+        enableColumnFilter: true,
+        enableSorting: true,
+      }
+    })
   }, [data])
 
-  // Initialize data table
+  // Initialize data table with advanced features
   const { table } = useDataTable({
     data,
     columns,
@@ -64,7 +116,10 @@ export function ResultsTable({
       },
     },
     getRowId: (_row: unknown, index: number) => index.toString(),
+    // Enable advanced filtering
+    enableAdvancedFilter: true,
   })
+
 
   if (!data || data.length === 0) {
     return (
@@ -126,10 +181,13 @@ export function ResultsTable({
         </div>
       </div>
 
-      {/* Data Table */}
+      {/* Data Table with Advanced Features */}
       <div className="border rounded-lg overflow-hidden bg-white dark:bg-slate-900 shadow-sm">
         <DataTable table={table} className="min-w-full">
-          <DataTableToolbar table={table} className="px-4 py-2 bg-slate-50/50 dark:bg-slate-900/50 border-b" />
+          <DataTableAdvancedToolbar table={table} className="px-4 py-2 bg-slate-50/50 dark:bg-slate-900/50 border-b">
+            <DataTableFilterList table={table} />
+            <DataTableSortList table={table} />
+          </DataTableAdvancedToolbar>
         </DataTable>
       </div>
     </motion.div>

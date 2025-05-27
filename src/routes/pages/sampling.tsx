@@ -14,7 +14,6 @@ import {
   Eye,
   FlaskConical,
   Table,
-  Download,
 } from "lucide-react"
 import { DatasetSearchBar } from "@/components/dataset-search"
 import { useDatasetVersions } from "@/hooks"
@@ -22,7 +21,7 @@ import { useSampling } from "@/hooks/use-sampling-query"
 import { MethodSelection } from "@/components/sampling/method-selection"
 import { ParametersForm } from "@/components/sampling/parameters-form"
 import { ResultsTable } from "@/components/sampling/results-table"
-import type { Dataset, DatasetVersion, SamplingMethod, SamplingRequest } from "@/lib/api/types"
+import type { Dataset, DatasetVersion, SamplingMethod, SamplingRequest, SamplingResult } from "@/lib/api/types"
 import { format } from "date-fns"
 import { useQuery } from "@tanstack/react-query"
 import { toast } from "sonner"
@@ -41,7 +40,7 @@ export function SamplingPage() {
   const [selectedDataset, setSelectedDataset] = useState<Dataset | null>(null)
   const [selectedVersion, setSelectedVersion] = useState<DatasetVersion | null>(null)
   const [selectedMethod, setSelectedMethod] = useState<SamplingMethod | null>(null)
-  const [samplingResults, setSamplingResults] = useState<any[]>([])
+  const [samplingResults, setSamplingResults] = useState<SamplingResult[]>([])
   const [lastRequest, setLastRequest] = useState<SamplingRequest | null>(null)
   const [compactView, setCompactView] = useState(false)
 
@@ -113,6 +112,7 @@ export function SamplingPage() {
       request,
     })
   }
+
 
   const handleDownloadResults = () => {
     if (!samplingResults || samplingResults.length === 0) return

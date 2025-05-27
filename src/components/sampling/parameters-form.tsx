@@ -1,20 +1,15 @@
 import { useState, useEffect } from "react"
-import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Play, Plus, X, Filter, Columns } from "lucide-react"
+import { Play } from "lucide-react"
 import type { 
   SamplingMethod, 
-  SamplingRequest, 
-  SamplingFilters,
-  SamplingCondition,
-  SamplingSelection
+  SamplingRequest,
 } from "@/lib/api/types"
 
 interface ParametersFormProps {
@@ -24,21 +19,6 @@ interface ParametersFormProps {
   isLoading?: boolean
 }
 
-const operators = [
-  { value: "=", label: "Equals" },
-  { value: "!=", label: "Not Equals" },
-  { value: ">", label: "Greater Than" },
-  { value: "<", label: "Less Than" },
-  { value: ">=", label: "Greater or Equal" },
-  { value: "<=", label: "Less or Equal" },
-  { value: "LIKE", label: "Like" },
-  { value: "ILIKE", label: "Case-Insensitive Like" },
-  { value: "IN", label: "In List" },
-  { value: "NOT IN", label: "Not In List" },
-  { value: "IS NULL", label: "Is Null" },
-  { value: "IS NOT NULL", label: "Is Not Null" },
-]
-
 export function ParametersForm({ 
   method, 
   datasetColumns = [],
@@ -47,12 +27,6 @@ export function ParametersForm({
 }: ParametersFormProps) {
   const [outputName, setOutputName] = useState("")
   const [parameters, setParameters] = useState<Record<string, any>>({})
-  const [filters, setFilters] = useState<SamplingCondition[]>([])
-  const [filterLogic, setFilterLogic] = useState<"AND" | "OR">("AND")
-  const [selectedColumns, setSelectedColumns] = useState<string[]>([])
-  const [orderBy, setOrderBy] = useState<string>("")
-  const [orderDesc, setOrderDesc] = useState(false)
-  const [showAdvanced, setShowAdvanced] = useState(false)
 
   useEffect(() => {
     // Reset parameters when method changes
@@ -60,49 +34,11 @@ export function ParametersForm({
     setOutputName(`${method}_sample_${Date.now()}`)
   }, [method])
 
-  const handleAddFilter = () => {
-    setFilters([...filters, { column: "", operator: "=", value: "" }])
-  }
-
-  const handleUpdateFilter = (index: number, field: keyof SamplingCondition, value: any) => {
-    const updatedFilters = [...filters]
-    updatedFilters[index] = { ...updatedFilters[index], [field]: value }
-    setFilters(updatedFilters)
-  }
-
-  const handleRemoveFilter = (index: number) => {
-    setFilters(filters.filter((_, i) => i !== index))
-  }
-
   const handleSubmit = () => {
     const request: SamplingRequest = {
       method,
       parameters,
       output_name: outputName,
-    }
-
-    // Add filters if any
-    if (filters.length > 0) {
-      const validFilters = filters.filter(f => f.column && f.operator && f.value !== "")
-      if (validFilters.length > 0) {
-        request.filters = {
-          conditions: validFilters,
-          logic: filterLogic,
-        }
-      }
-    }
-
-    // Add selection if any
-    const selection: SamplingSelection = {}
-    if (selectedColumns.length > 0) {
-      selection.columns = selectedColumns
-    }
-    if (orderBy) {
-      selection.order_by = orderBy
-      selection.order_desc = orderDesc
-    }
-    if (Object.keys(selection).length > 0) {
-      request.selection = selection
     }
 
     onSubmit(request)
@@ -314,177 +250,6 @@ export function ParametersForm({
 
           {renderParameterInputs()}
         </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-lg">Advanced Options</CardTitle>
-              <CardDescription>Apply filters and column selection</CardDescription>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowAdvanced(!showAdvanced)}
-            >
-              {showAdvanced ? "Hide" : "Show"} Advanced
-            </Button>
-          </div>
-        </CardHeader>
-        {showAdvanced && (
-          <CardContent className="space-y-4">
-            {/* Filters Section */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="flex items-center gap-2">
-                  <Filter className="w-4 h-4" />
-                  Filters
-                </Label>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddFilter}
-                >
-                  <Plus className="w-3 h-3 mr-1" />
-                  Add Filter
-                </Button>
-              </div>
-              
-              {filters.map((filter, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex items-center gap-2"
-                >
-                  <Select
-                    value={filter.column}
-                    onValueChange={(value) => handleUpdateFilter(index, "column", value)}
-                  >
-                    <SelectTrigger className="w-[150px]">
-                      <SelectValue placeholder="Column" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {datasetColumns.map((col) => (
-                        <SelectItem key={col} value={col}>{col}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <Select
-                    value={filter.operator}
-                    onValueChange={(value) => handleUpdateFilter(index, "operator", value)}
-                  >
-                    <SelectTrigger className="w-[150px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {operators.map((op) => (
-                        <SelectItem key={op.value} value={op.value}>{op.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  {!["IS NULL", "IS NOT NULL"].includes(filter.operator) && (
-                    <Input
-                      placeholder="Value"
-                      value={filter.value}
-                      onChange={(e) => handleUpdateFilter(index, "value", e.target.value)}
-                      className="flex-1"
-                    />
-                  )}
-
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleRemoveFilter(index)}
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </motion.div>
-              ))}
-
-              {filters.length > 1 && (
-                <div className="flex items-center gap-2">
-                  <Label>Logic:</Label>
-                  <Select value={filterLogic} onValueChange={(value: "AND" | "OR") => setFilterLogic(value)}>
-                    <SelectTrigger className="w-[100px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="AND">AND</SelectItem>
-                      <SelectItem value="OR">OR</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-            </div>
-
-            <Separator />
-
-            {/* Column Selection */}
-            <div className="space-y-3">
-              <Label className="flex items-center gap-2">
-                <Columns className="w-4 h-4" />
-                Column Selection
-              </Label>
-              <div className="flex flex-wrap gap-2">
-                {datasetColumns.map((col) => (
-                  <Badge
-                    key={col}
-                    variant={selectedColumns.includes(col) ? "default" : "outline"}
-                    className="cursor-pointer"
-                    onClick={() => {
-                      if (selectedColumns.includes(col)) {
-                        setSelectedColumns(selectedColumns.filter(c => c !== col))
-                      } else {
-                        setSelectedColumns([...selectedColumns, col])
-                      }
-                    }}
-                  >
-                    {col}
-                  </Badge>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {selectedColumns.length === 0 ? "All columns selected" : `${selectedColumns.length} columns selected`}
-              </p>
-            </div>
-
-            <Separator />
-
-            {/* Ordering */}
-            <div className="space-y-3">
-              <Label>Data Ordering</Label>
-              <div className="flex items-center gap-2">
-                <Select
-                  value={orderBy}
-                  onValueChange={setOrderBy}
-                >
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Order by column" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">No ordering</SelectItem>
-                    {datasetColumns.map((col) => (
-                      <SelectItem key={col} value={col}>{col}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {orderBy && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setOrderDesc(!orderDesc)}
-                  >
-                    {orderDesc ? "DESC" : "ASC"}
-                  </Button>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        )}
       </Card>
 
       <div className="flex justify-end">
