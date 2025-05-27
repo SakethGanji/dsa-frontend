@@ -3,7 +3,7 @@ import type {
   Token, LoginRequest, UserOut, UserCreate, 
   Dataset, DatasetListParams, DatasetUpdate, DatasetUploadParams,
   DatasetUploadResponse, DatasetVersion, Tag, SheetDataParams,
-  ExploreRequest
+  ExploreRequest, SamplingRequest, SamplingResult
 } from './types';
 
 // Re-export client
@@ -175,6 +175,17 @@ export const api = {
         endpoint: `/explore/${datasetId}/${versionId}`,
         method: 'POST',
         data: options,
+        requireAuth: true,
+      }),
+  },
+  
+  // Sampling endpoints
+  sampling: {
+    execute: (datasetId: number, versionId: number, request: SamplingRequest) =>
+      apiClient<SamplingResult[]>({
+        endpoint: `/sampling/${datasetId}/${versionId}/execute`,
+        method: 'POST',
+        data: request,
         requireAuth: true,
       }),
   },
