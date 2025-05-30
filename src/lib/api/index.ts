@@ -202,5 +202,17 @@ export const api = {
       
       return [];
     },
+    
+    getColumns: (datasetId: number, versionId: number) =>
+      apiClient<{
+        columns: string[],
+        column_types: Record<string, string>,
+        total_rows: number,
+        null_counts: Record<string, number>,
+        sample_values: Record<string, any[]>
+      }>({
+        endpoint: `/sampling/${datasetId}/${versionId}/columns`,
+        requireAuth: true,
+      }),
   },
 };
