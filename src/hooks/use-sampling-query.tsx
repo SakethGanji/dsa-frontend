@@ -3,7 +3,7 @@ import {
   type UseMutationOptions,
 } from '@tanstack/react-query';
 import { api } from '@/lib/api/index';
-import type { SamplingRequest, SamplingResult } from '@/lib/api/types';
+import type { SamplingRequest, SamplingResult, PipelineSamplingRequest } from '@/lib/api/types';
 
 // Query keys for sampling
 export const samplingKeys = {
@@ -19,7 +19,7 @@ export function useSampling(
   options?: Omit<UseMutationOptions<SamplingResult[], Error, {
     datasetId: number,
     versionId: number, 
-    request: SamplingRequest,
+    request: SamplingRequest | PipelineSamplingRequest,
     page?: number,
     pageSize?: number
   }, unknown>, 'mutationFn'>
@@ -27,7 +27,7 @@ export function useSampling(
   return useMutation<SamplingResult[], Error, {
     datasetId: number,
     versionId: number, 
-    request: SamplingRequest,
+    request: SamplingRequest | PipelineSamplingRequest,
     page?: number,
     pageSize?: number
   }>({

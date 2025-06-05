@@ -3,7 +3,7 @@ import type {
   Token, LoginRequest, UserOut, UserCreate, 
   Dataset, DatasetListParams, DatasetUpdate, DatasetUploadParams,
   DatasetUploadResponse, DatasetVersion, Tag, SheetDataParams,
-  ExploreRequest, SamplingRequest, SamplingResult
+  ExploreRequest, SamplingRequest, SamplingResult, PipelineSamplingRequest
 } from './types';
 
 // Re-export client
@@ -181,7 +181,7 @@ export const api = {
   
   // Sampling endpoints
   sampling: {
-    execute: async (datasetId: number, versionId: number, request: SamplingRequest, page?: number, pageSize?: number) => {
+    execute: async (datasetId: number, versionId: number, request: SamplingRequest | PipelineSamplingRequest, page?: number, pageSize?: number) => {
       const response = await apiClient<SamplingResult[] | { data: SamplingResult[], pagination?: any }>({
         endpoint: `/sampling/${datasetId}/${versionId}/execute`,
         method: 'POST',

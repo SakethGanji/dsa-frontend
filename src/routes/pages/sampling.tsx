@@ -18,10 +18,9 @@ import {
 import { DatasetSearchBar } from "@/components/dataset-search"
 import { useDatasetVersions } from "@/hooks"
 import { useSampling } from "@/hooks/use-sampling-query"
-import { MethodSelection } from "@/components/sampling/method-selection"
-import { ParametersForm } from "@/components/sampling/parameters-form"
+import { PipelineForm } from "@/components/sampling/pipeline-form"
 import { ResultsTable } from "@/components/sampling/results-table"
-import type { Dataset, DatasetVersion, SamplingMethod, SamplingRequest, SamplingResult } from "@/lib/api/types"
+import type { Dataset, DatasetVersion, PipelineSamplingRequest, SamplingResult } from "@/lib/api/types"
 import { format } from "date-fns"
 import { useQuery } from "@tanstack/react-query"
 import { toast } from "sonner"
@@ -30,18 +29,16 @@ import React from "react"
 const stepInfo = {
   1: { title: "Select Dataset", subtitle: "Choose data source" },
   2: { title: "Select Version", subtitle: "Pick dataset version" },
-  3: { title: "Choose Method", subtitle: "Select sampling technique" },
-  4: { title: "Configure", subtitle: "Set parameters" },
-  5: { title: "View Results", subtitle: "Review sample" },
+  3: { title: "Configure Pipeline", subtitle: "Build sampling pipeline" },
+  4: { title: "View Results", subtitle: "Review sample" },
 }
 
 export function SamplingPage() {
   const [currentStep, setCurrentStep] = useState(1)
   const [selectedDataset, setSelectedDataset] = useState<Dataset | null>(null)
   const [selectedVersion, setSelectedVersion] = useState<DatasetVersion | null>(null)
-  const [selectedMethod, setSelectedMethod] = useState<SamplingMethod | null>(null)
   const [samplingResults, setSamplingResults] = useState<SamplingResult[]>([])
-  const [lastRequest, setLastRequest] = useState<SamplingRequest | null>(null)
+  const [lastRequest, setLastRequest] = useState<PipelineSamplingRequest | null>(null)
   const [compactView, setCompactView] = useState(false)
   
   // Pagination state
@@ -59,11 +56,11 @@ export function SamplingPage() {
     onSuccess: (data) => {
       if (!data || !Array.isArray(data) || data.length === 0) {
         setSamplingResults([])
-        setCurrentStep(5)
+        setCurrentStep(4)
         toast.warning("Sampling completed but no results were returned")
       } else {
         setSamplingResults(data)
-        setCurrentStep(5)
+        setCurrentStep(4)
         // For demonstration, assume we have more data if we get a full page
         // In a real implementation, the API should return total count
         setTotalItems(data.length === pageSize ? data.length * 10 : data.length)
@@ -127,25 +124,17 @@ export function SamplingPage() {
   const handleDatasetSelect = (dataset: Dataset) => {
     setSelectedDataset(dataset)
     setSelectedVersion(null)
-    setSelectedMethod(null)
     setSamplingResults([])
     setTimeout(() => setCurrentStep(2), 300)
   }
 
   const handleVersionSelect = (version: DatasetVersion) => {
     setSelectedVersion(version)
-    setSelectedMethod(null)
     setSamplingResults([])
     setTimeout(() => setCurrentStep(3), 300)
   }
 
-  const handleMethodSelect = (method: SamplingMethod) => {
-    setSelectedMethod(method)
-    setSamplingResults([])
-    setTimeout(() => setCurrentStep(4), 300)
-  }
-
-  const handleSamplingSubmit = (request: SamplingRequest) => {
+  const handleSamplingSubmit = (request: PipelineSamplingRequest) => {
     if (!selectedDataset || !selectedVersion) return
     
     // Reset pagination when starting a new sampling request
@@ -198,7 +187,6 @@ export function SamplingPage() {
     setCurrentStep(1)
     setSelectedDataset(null)
     setSelectedVersion(null)
-    setSelectedMethod(null)
     setSamplingResults([])
     setLastRequest(null)
   }
@@ -252,7 +240,7 @@ export function SamplingPage() {
                         </span>
                         <span className="hidden sm:inline">{info.title}</span>
                       </motion.button>
-                      {stepNum < 5 && (
+                      {stepNum < 4 && (
                         <ChevronRight className="w-3 h-3 text-gray-400 dark:text-gray-600" />
                       )}
                     </React.Fragment>
@@ -477,9 +465,9 @@ export function SamplingPage() {
               )}
             </AnimatePresence>
 
-            {/* Step 3: Choose Sampling Method */}
+            {/* Step 3: Configure Pipeline */}
             <AnimatePresence>
-              {shouldShowStep(3) && (
+              {shouldShowStep(3) && selectedDataset && selectedVersion && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -509,69 +497,16 @@ export function SamplingPage() {
                           {currentStep > 3 ? <Check className="w-4 h-4" /> : <FlaskConical className="w-4 h-4" />}
                         </div>
                         <div>
-                          <CardTitle className="text-lg">Sampling Method</CardTitle>
+                          <CardTitle className="text-lg">Configure Pipeline</CardTitle>
                           <CardDescription className="text-sm">
-                            Choose how you want to sample your data
+                            Build your sampling pipeline
                           </CardDescription>
                         </div>
                       </div>
                     </CardHeader>
 
                     <CardContent>
-                      <MethodSelection 
-                        selectedMethod={selectedMethod}
-                        onSelectMethod={handleMethodSelect}
-                        disabled={currentStep > 3}
-                      />
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Step 4: Configure Parameters */}
-            <AnimatePresence>
-              {shouldShowStep(4) && selectedMethod && selectedDataset && selectedVersion && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.3 }}
-                  layout
-                >
-                  <Card
-                    className={`transition-all duration-500 ${
-                      currentStep === 4
-                        ? "ring-2 ring-blue-200 shadow-lg"
-                        : currentStep > 4
-                          ? "bg-green-50/50 border-green-200"
-                          : ""
-                    }`}
-                  >
-                    <CardHeader className="pb-4">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                            currentStep > 4
-                              ? "bg-green-100 text-green-600"
-                              : currentStep === 4
-                                ? "bg-blue-100 text-blue-600"
-                                : "bg-slate-100 text-slate-400"
-                          }`}
-                        >
-                          {currentStep > 4 ? <Check className="w-4 h-4" /> : <FlaskConical className="w-4 h-4" />}
-                        </div>
-                        <div>
-                          <CardTitle className="text-lg">Configure Sampling</CardTitle>
-                          <CardDescription className="text-sm">
-                            Set parameters for {selectedMethod} sampling
-                          </CardDescription>
-                        </div>
-                      </div>
-                    </CardHeader>
-
-                    <CardContent>
-                      <ParametersForm
-                        method={selectedMethod}
+                      <PipelineForm
                         datasetId={selectedDataset.id}
                         versionId={selectedVersion.id}
                         datasetColumns={datasetInfo?.headers || []}
@@ -584,13 +519,13 @@ export function SamplingPage() {
               )}
             </AnimatePresence>
 
-            {/* Step 5: View Results */}
+            {/* Step 4: View Results */}
             <AnimatePresence>
-              {shouldShowStep(5) && samplingResults && samplingResults.length > 0 && (
+              {shouldShowStep(4) && samplingResults && samplingResults.length > 0 && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.4 }}
+                  transition={{ duration: 0.5, delay: 0.3 }}
                   layout
                 >
                   <Card className="ring-2 ring-green-400 shadow-2xl bg-gradient-to-br from-green-50/50 to-emerald-50/50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-300 dark:border-green-800">
@@ -605,7 +540,7 @@ export function SamplingPage() {
                               Sampling Results
                             </CardTitle>
                             <CardDescription className="text-sm">
-                              Your {selectedMethod} sample is ready
+                              Your pipeline sample is ready
                             </CardDescription>
                           </div>
                         </div>
@@ -628,7 +563,7 @@ export function SamplingPage() {
                       <ResultsTable
                         data={samplingResults}
                         outputName={lastRequest?.output_name || "sample"}
-                        method={selectedMethod || ""}
+                        method="pipeline"
                         onDownload={handleDownloadResults}
                         onCopyToClipboard={handleCopyToClipboard}
                         currentPage={currentPage}
@@ -644,8 +579,8 @@ export function SamplingPage() {
               )}
             </AnimatePresence>
 
-            {/* Debug: Show message when on step 5 but no results */}
-            {currentStep === 5 && (!samplingResults || samplingResults.length === 0) && (
+            {/* Debug: Show message when on step 4 but no results */}
+            {currentStep === 4 && (!samplingResults || samplingResults.length === 0) && (
               <Card className="border-2 border-dashed border-gray-300 dark:border-gray-700">
                 <CardContent className="p-12 text-center">
                   <FlaskConical className="w-12 h-12 mx-auto mb-4 text-gray-400" />
@@ -686,7 +621,7 @@ export function SamplingPage() {
                   />
                   <h3 className="font-semibold mb-2 text-sm">Sampling Data</h3>
                   <p className="text-xs text-slate-600">
-                    Executing {selectedMethod} sampling...
+                    Executing pipeline sampling...
                   </p>
                   <motion.div
                     className="w-full bg-slate-200 rounded-full h-1.5 mt-4"

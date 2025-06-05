@@ -222,6 +222,51 @@ export interface SamplingRequest {
   selection?: SamplingSelection;
 }
 
+// Pipeline sampling types
+export interface FilterStep {
+  step: 'filter';
+  parameters: {
+    conditions: SamplingCondition[];
+    logic: 'AND' | 'OR';
+  };
+}
+
+export interface RandomSampleStep {
+  step: 'random_sample';
+  parameters: RandomSamplingParams;
+}
+
+export interface StratifiedSampleStep {
+  step: 'stratified_sample';
+  parameters: StratifiedSamplingParams;
+}
+
+export interface SystematicSampleStep {
+  step: 'systematic_sample';
+  parameters: SystematicSamplingParams;
+}
+
+export interface ClusterSampleStep {
+  step: 'cluster_sample';
+  parameters: ClusterSamplingParams;
+}
+
+export interface ConsecutiveSampleStep {
+  step: 'consecutive_sample';
+  parameters: {
+    interval: number;
+    start?: number;
+  };
+}
+
+export type PipelineStep = FilterStep | RandomSampleStep | StratifiedSampleStep | SystematicSampleStep | ClusterSampleStep | ConsecutiveSampleStep;
+
+export interface PipelineSamplingRequest {
+  pipeline: PipelineStep[];
+  output_name: string;
+  selection?: SamplingSelection;
+}
+
 export interface SamplingResult {
   [key: string]: any;
 }

@@ -37,6 +37,8 @@ interface ColumnSelectorProps {
   orderBy?: string | null
   orderDesc?: boolean
   onOrderChange?: (column: string | null, desc: boolean) => void
+  limit?: number | null
+  onLimitChange?: (limit: number | null) => void
 }
 
 const getColumnIcon = (type: string) => {
@@ -83,7 +85,9 @@ export function ColumnSelector({
   onColumnsChange,
   orderBy,
   orderDesc = false,
-  onOrderChange
+  onOrderChange,
+  limit,
+  onLimitChange
 }: ColumnSelectorProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [localSelected, setLocalSelected] = useState<Set<string>>(new Set(selectedColumns))
@@ -367,6 +371,20 @@ export function ColumnSelector({
             {showOnlySelected ? "Show All" : "Show Selected"}
           </Button>
         </div>
+
+        {onLimitChange && (
+          <div className="flex items-center gap-2">
+            <Label htmlFor="limit" className="text-sm whitespace-nowrap">Limit rows:</Label>
+            <Input
+              id="limit"
+              type="number"
+              placeholder="No limit"
+              value={limit || ""}
+              onChange={(e) => onLimitChange(e.target.value ? parseInt(e.target.value) : null)}
+              className="h-9 w-32"
+            />
+          </div>
+        )}
 
         <div className="flex gap-2">
           <Button
