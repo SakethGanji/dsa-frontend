@@ -25,6 +25,8 @@ interface ParametersFormProps {
   datasetColumns?: string[]
   onSubmit: (request: SamplingRequest) => void
   isLoading?: boolean
+  hideSubmitButton?: boolean
+  initialValues?: any
 }
 
 export function ParametersForm({ 
@@ -33,14 +35,16 @@ export function ParametersForm({
   versionId,
   datasetColumns = [],
   onSubmit,
-  isLoading = false
+  isLoading = false,
+  hideSubmitButton = false,
+  initialValues
 }: ParametersFormProps) {
-  const [outputName, setOutputName] = useState("")
-  const [parameters, setParameters] = useState<any>({})
-  const [filters, setFilters] = useState<SamplingFilters | undefined>()
-  const [selectedColumns, setSelectedColumns] = useState<string[]>([])
-  const [orderBy, setOrderBy] = useState<string | null>(null)
-  const [orderDesc, setOrderDesc] = useState(false)
+  const [outputName, setOutputName] = useState(initialValues?.output_name || "")
+  const [parameters, setParameters] = useState<any>(initialValues || {})
+  const [filters, setFilters] = useState<SamplingFilters | undefined>(initialValues?.filters)
+  const [selectedColumns, setSelectedColumns] = useState<string[]>(initialValues?.selection?.columns || [])
+  const [orderBy, setOrderBy] = useState<string | null>(initialValues?.selection?.order_by || null)
+  const [orderDesc, setOrderDesc] = useState(initialValues?.selection?.order_desc || false)
   const [activeTab, setActiveTab] = useState("parameters")
 
   // Fetch column metadata
@@ -63,10 +67,12 @@ export function ParametersForm({
   })
 
   useEffect(() => {
-    // Reset parameters when method changes
-    setParameters({})
-    setOutputName(`${method}_sample_${Date.now()}`)
-  }, [method])
+    // Reset parameters when method changes, unless we have initial values
+    if (!initialValues) {
+      setParameters({})
+      setOutputName(`${method}_sample_${Date.now()}`)
+    }
+  }, [method, initialValues])
 
   const handleSubmit = () => {
     // Build selection object
@@ -406,25 +412,27 @@ export function ParametersForm({
         </TabsContent>
       </Tabs>
 
-      <div className="flex justify-end">
-        <Button
-          onClick={handleSubmit}
-          disabled={!isFormValid() || isLoading}
-          className="min-w-[150px]"
-        >
-          {isLoading ? (
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              Sampling...
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Play className="w-4 h-4" />
-              Execute Sampling
-            </div>
-          )}
-        </Button>
-      </div>
+      {!hideSubmitButton && (
+        <div className="flex justify-end">
+          <Button
+            onClick={handleSubmit}
+            disabled={!isFormValid() || isLoading}
+            className="min-w-[150px]"
+          >
+            {isLoading ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Sampling...
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Play className="w-4 h-4" />
+                Execute Sampling
+              </div>
+            )}
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

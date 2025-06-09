@@ -17,11 +17,10 @@ import {
 } from "lucide-react"
 import { DatasetSearchBar } from "@/components/dataset-search"
 import { useDatasetVersions } from "@/hooks"
-import { useSampling } from "@/hooks/use-sampling-query"
-import { MethodSelection } from "@/components/sampling/method-selection"
-import { ParametersForm } from "@/components/sampling/parameters-form"
-import { ResultsTable } from "@/components/sampling/results-table"
-import type { Dataset, DatasetVersion, SamplingMethod, SamplingRequest, SamplingResult } from "@/lib/api/types"
+import { useMultiRoundSampling } from "@/hooks/use-multi-round-sampling"
+import { MultiRoundForm } from "@/components/sampling/multi-round-form"
+import { MultiRoundResults } from "@/components/sampling/multi-round-results"
+import type { Dataset, DatasetVersion, MultiRoundSamplingRequest, MultiRoundSamplingResponse } from "@/lib/api/types"
 import { format } from "date-fns"
 import { useQuery } from "@tanstack/react-query"
 import { toast } from "sonner"
@@ -30,24 +29,21 @@ import React from "react"
 const stepInfo = {
   1: { title: "Select Dataset", subtitle: "Choose data source" },
   2: { title: "Select Version", subtitle: "Pick dataset version" },
-  3: { title: "Choose Method", subtitle: "Select sampling technique" },
-  4: { title: "Configure", subtitle: "Set parameters" },
-  5: { title: "View Results", subtitle: "Review sample" },
+  3: { title: "Configure Rounds", subtitle: "Set up multi-round sampling" },
+  4: { title: "View Results", subtitle: "Review samples" },
 }
 
 export function SamplingPage() {
   const [currentStep, setCurrentStep] = useState(1)
   const [selectedDataset, setSelectedDataset] = useState<Dataset | null>(null)
   const [selectedVersion, setSelectedVersion] = useState<DatasetVersion | null>(null)
-  const [selectedMethod, setSelectedMethod] = useState<SamplingMethod | null>(null)
-  const [samplingResults, setSamplingResults] = useState<SamplingResult[]>([])
-  const [lastRequest, setLastRequest] = useState<SamplingRequest | null>(null)
+  const [samplingResponse, setSamplingResponse] = useState<MultiRoundSamplingResponse | null>(null)
   const [compactView, setCompactView] = useState(false)
   
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize, setPageSize] = useState(50)
-  const [totalItems, setTotalItems] = useState(0)
+  // Pagination state - kept for potential future use
+  // const [currentPage, setCurrentPage] = useState(1)
+  // const [pageSize, setPageSize] = useState(50)
+  // const [totalItems, setTotalItems] = useState(0)
 
   // Query hooks
   const { data: versions, isLoading: versionsLoading } = useDatasetVersions(
@@ -55,19 +51,18 @@ export function SamplingPage() {
     { enabled: !!selectedDataset }
   )
   
-  const samplingMutation = useSampling({
+  // Use the multi-round sampling hook
+  const samplingMutation = useMultiRoundSampling({
     onSuccess: (data) => {
-      if (!data || !Array.isArray(data) || data.length === 0) {
-        setSamplingResults([])
-        setCurrentStep(5)
+      if (!data) {
+        setSamplingResponse(null)
+        setCurrentStep(4)
         toast.warning("Sampling completed but no results were returned")
       } else {
-        setSamplingResults(data)
-        setCurrentStep(5)
-        // For demonstration, assume we have more data if we get a full page
-        // In a real implementation, the API should return total count
-        setTotalItems(data.length === pageSize ? data.length * 10 : data.length)
-        toast.success(`Sampling completed successfully! ${data.length} rows returned.`)
+        setSamplingResponse(data)
+        setCurrentStep(4)
+        const totalRows = data.rounds?.reduce((acc: number, round) => acc + round.data.length, 0) || 0
+        toast.success(`Multi-round sampling completed! ${data.rounds?.length || 0} rounds processed with ${totalRows} total rows.`)
       }
     },
     onError: (error) => {
@@ -75,34 +70,16 @@ export function SamplingPage() {
     },
   })
   
-  // Function to handle page changes
-  const handlePageChange = (newPage: number) => {
-    if (!selectedDataset || !selectedVersion || !lastRequest) return
-    
-    setCurrentPage(newPage)
-    samplingMutation.mutate({
-      datasetId: selectedDataset.id,
-      versionId: selectedVersion.id,
-      request: lastRequest,
-      page: newPage,
-      pageSize: pageSize
-    })
-  }
+  // Pagination functions - kept for potential future use
+  // const handlePageChange = (newPage: number) => {
+  //   if (!selectedDataset || !selectedVersion || !lastRequest) return
+  //   // Implementation for multi-round pagination
+  // }
   
-  // Function to handle page size changes
-  const handlePageSizeChange = (newPageSize: number) => {
-    if (!selectedDataset || !selectedVersion || !lastRequest) return
-    
-    setPageSize(newPageSize)
-    setCurrentPage(1) // Reset to first page
-    samplingMutation.mutate({
-      datasetId: selectedDataset.id,
-      versionId: selectedVersion.id,
-      request: lastRequest,
-      page: 1,
-      pageSize: newPageSize
-    })
-  }
+  // const handlePageSizeChange = (newPageSize: number) => {
+  //   if (!selectedDataset || !selectedVersion || !lastRequest) return
+  //   // Implementation for multi-round pagination
+  // }
 
   // Fetch dataset columns for the form
   const { data: datasetInfo } = useQuery({
@@ -127,80 +104,38 @@ export function SamplingPage() {
   const handleDatasetSelect = (dataset: Dataset) => {
     setSelectedDataset(dataset)
     setSelectedVersion(null)
-    setSelectedMethod(null)
-    setSamplingResults([])
+    setSamplingResponse(null)
     setTimeout(() => setCurrentStep(2), 300)
   }
 
   const handleVersionSelect = (version: DatasetVersion) => {
     setSelectedVersion(version)
-    setSelectedMethod(null)
-    setSamplingResults([])
+    setSamplingResponse(null)
     setTimeout(() => setCurrentStep(3), 300)
   }
 
-  const handleMethodSelect = (method: SamplingMethod) => {
-    setSelectedMethod(method)
-    setSamplingResults([])
-    setTimeout(() => setCurrentStep(4), 300)
-  }
-
-  const handleSamplingSubmit = (request: SamplingRequest) => {
+  const handleMultiRoundSubmit = (request: MultiRoundSamplingRequest) => {
     if (!selectedDataset || !selectedVersion) return
     
-    // Reset pagination when starting a new sampling request
-    setCurrentPage(1)
-    setPageSize(50)
-    setTotalItems(0)
-    
-    setLastRequest(request)
     samplingMutation.mutate({
       datasetId: selectedDataset.id,
       versionId: selectedVersion.id,
-      request,
+      request: request,
       page: 1,
-      pageSize: 50
+      pageSize: 100
     })
   }
 
 
-  const handleDownloadResults = () => {
-    if (!samplingResults || samplingResults.length === 0) return
-    
-    const csv = [
-      Object.keys(samplingResults[0]).join(','),
-      ...samplingResults.map(row => 
-        Object.values(row).map(val => 
-          typeof val === 'string' && val.includes(',') ? `"${val}"` : val
-        ).join(',')
-      )
-    ].join('\n')
-    
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${lastRequest?.output_name || 'sample'}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-    toast.success("Sample downloaded successfully!")
-  }
-
-  const handleCopyToClipboard = () => {
-    if (!samplingResults || samplingResults.length === 0) return
-    
-    const text = JSON.stringify(samplingResults, null, 2)
-    navigator.clipboard.writeText(text)
-    toast.success("Sample copied to clipboard!")
-  }
+  // Download and copy handlers - removed as MultiRoundResults handles internally
+  // const handleDownloadResults = ...
+  // const handleCopyToClipboard = ...
 
   const resetFlow = () => {
     setCurrentStep(1)
     setSelectedDataset(null)
     setSelectedVersion(null)
-    setSelectedMethod(null)
-    setSamplingResults([])
-    setLastRequest(null)
+    setSamplingResponse(null)
   }
 
   const shouldShowStep = (stepId: number) => {
@@ -252,7 +187,7 @@ export function SamplingPage() {
                         </span>
                         <span className="hidden sm:inline">{info.title}</span>
                       </motion.button>
-                      {stepNum < 5 && (
+                      {stepNum < 4 && (
                         <ChevronRight className="w-3 h-3 text-gray-400 dark:text-gray-600" />
                       )}
                     </React.Fragment>
@@ -477,9 +412,9 @@ export function SamplingPage() {
               )}
             </AnimatePresence>
 
-            {/* Step 3: Choose Sampling Method */}
+            {/* Step 3: Configure Multi-Round Sampling */}
             <AnimatePresence>
-              {shouldShowStep(3) && (
+              {shouldShowStep(3) && selectedDataset && selectedVersion && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -509,73 +444,20 @@ export function SamplingPage() {
                           {currentStep > 3 ? <Check className="w-4 h-4" /> : <FlaskConical className="w-4 h-4" />}
                         </div>
                         <div>
-                          <CardTitle className="text-lg">Sampling Method</CardTitle>
+                          <CardTitle className="text-lg">Configure Multi-Round Sampling</CardTitle>
                           <CardDescription className="text-sm">
-                            Choose how you want to sample your data
+                            Set up progressive residual sampling rounds
                           </CardDescription>
                         </div>
                       </div>
                     </CardHeader>
 
                     <CardContent>
-                      <MethodSelection 
-                        selectedMethod={selectedMethod}
-                        onSelectMethod={handleMethodSelect}
-                        disabled={currentStep > 3}
-                      />
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Step 4: Configure Parameters */}
-            <AnimatePresence>
-              {shouldShowStep(4) && selectedMethod && selectedDataset && selectedVersion && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.3 }}
-                  layout
-                >
-                  <Card
-                    className={`transition-all duration-500 ${
-                      currentStep === 4
-                        ? "ring-2 ring-blue-200 shadow-lg"
-                        : currentStep > 4
-                          ? "bg-green-50/50 border-green-200"
-                          : ""
-                    }`}
-                  >
-                    <CardHeader className="pb-4">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                            currentStep > 4
-                              ? "bg-green-100 text-green-600"
-                              : currentStep === 4
-                                ? "bg-blue-100 text-blue-600"
-                                : "bg-slate-100 text-slate-400"
-                          }`}
-                        >
-                          {currentStep > 4 ? <Check className="w-4 h-4" /> : <FlaskConical className="w-4 h-4" />}
-                        </div>
-                        <div>
-                          <CardTitle className="text-lg">Configure Sampling</CardTitle>
-                          <CardDescription className="text-sm">
-                            Set parameters for {selectedMethod} sampling
-                          </CardDescription>
-                        </div>
-                      </div>
-                    </CardHeader>
-
-                    <CardContent>
-                      <ParametersForm
-                        method={selectedMethod}
+                      <MultiRoundForm
                         datasetId={selectedDataset.id}
                         versionId={selectedVersion.id}
-                        datasetColumns={datasetInfo?.headers || []}
-                        onSubmit={handleSamplingSubmit}
+                        datasetColumns={datasetInfo?.columns || []}
+                        onSubmit={handleMultiRoundSubmit}
                         isLoading={samplingMutation.isPending}
                       />
                     </CardContent>
@@ -584,13 +466,13 @@ export function SamplingPage() {
               )}
             </AnimatePresence>
 
-            {/* Step 5: View Results */}
+            {/* Step 4: View Results */}
             <AnimatePresence>
-              {shouldShowStep(5) && samplingResults && samplingResults.length > 0 && (
+              {shouldShowStep(4) && samplingResponse && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.4 }}
+                  transition={{ duration: 0.5, delay: 0.3 }}
                   layout
                 >
                   <Card className="ring-2 ring-green-400 shadow-2xl bg-gradient-to-br from-green-50/50 to-emerald-50/50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-300 dark:border-green-800">
@@ -602,10 +484,10 @@ export function SamplingPage() {
                           </div>
                           <div>
                             <CardTitle className="text-xl font-bold bg-gradient-to-r from-green-700 to-emerald-700 dark:from-green-300 dark:to-emerald-300 bg-clip-text text-transparent">
-                              Sampling Results
+                              Multi-Round Sampling Results
                             </CardTitle>
                             <CardDescription className="text-sm">
-                              Your {selectedMethod} sample is ready
+                              {samplingResponse.rounds.length} rounds completed
                             </CardDescription>
                           </div>
                         </div>
@@ -625,17 +507,8 @@ export function SamplingPage() {
                     </CardHeader>
 
                     <CardContent className="p-0">
-                      <ResultsTable
-                        data={samplingResults}
-                        outputName={lastRequest?.output_name || "sample"}
-                        method={selectedMethod || ""}
-                        onDownload={handleDownloadResults}
-                        onCopyToClipboard={handleCopyToClipboard}
-                        currentPage={currentPage}
-                        pageSize={pageSize}
-                        totalItems={totalItems}
-                        onPageChange={handlePageChange}
-                        onPageSizeChange={handlePageSizeChange}
+                      <MultiRoundResults
+                        results={samplingResponse}
                         isLoading={samplingMutation.isPending}
                       />
                     </CardContent>
@@ -644,8 +517,8 @@ export function SamplingPage() {
               )}
             </AnimatePresence>
 
-            {/* Debug: Show message when on step 5 but no results */}
-            {currentStep === 5 && (!samplingResults || samplingResults.length === 0) && (
+            {/* Debug: Show message when on step 4 but no results */}
+            {currentStep === 4 && !samplingResponse && (
               <Card className="border-2 border-dashed border-gray-300 dark:border-gray-700">
                 <CardContent className="p-12 text-center">
                   <FlaskConical className="w-12 h-12 mx-auto mb-4 text-gray-400" />
@@ -653,7 +526,7 @@ export function SamplingPage() {
                     Waiting for Results...
                   </h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    The sampling operation is processing. Results will appear here.
+                    The multi-round sampling operation is processing. Results will appear here.
                   </p>
                 </CardContent>
               </Card>
@@ -686,7 +559,7 @@ export function SamplingPage() {
                   />
                   <h3 className="font-semibold mb-2 text-sm">Sampling Data</h3>
                   <p className="text-xs text-slate-600">
-                    Executing {selectedMethod} sampling...
+                    Executing multi-round sampling...
                   </p>
                   <motion.div
                     className="w-full bg-slate-200 rounded-full h-1.5 mt-4"

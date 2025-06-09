@@ -12,6 +12,7 @@ export * from './use-exploration-query';
 // Sampling hooks
 export * from './use-sampling-query';
 export * from './use-column-metadata';
+export * from './use-multi-round-sampling';
 
 // Legacy hooks (kept for backwards compatibility)
 export * from './use-auth';

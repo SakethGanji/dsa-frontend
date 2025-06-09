@@ -237,3 +237,71 @@ export interface SamplingResponse {
     has_previous: boolean;
   };
 }
+
+// Multi-round sampling types
+export interface DataFilterGroup {
+  conditions?: SamplingCondition[];
+  groups?: DataFilterGroup[];
+  logic: 'AND' | 'OR';
+}
+
+export interface DataFilters {
+  conditions?: SamplingCondition[];
+  groups?: DataFilterGroup[];
+  logic: 'AND' | 'OR';
+}
+
+export interface MultiRoundSamplingRound {
+  round_number: number;
+  method: SamplingMethod;
+  parameters: SamplingParameters;
+  output_name: string;
+  filters?: DataFilters;
+  selection?: SamplingSelection;
+}
+
+export interface MultiRoundSamplingRequest {
+  rounds: MultiRoundSamplingRound[];
+  export_residual?: boolean;
+  residual_output_name?: string;
+}
+
+export interface RoundResult {
+  round_number: number;
+  output_name: string;
+  method: string;
+  sample_size: number;
+  data: SamplingResult[];
+  summary?: {
+    total_rows: number;
+    total_columns: number;
+    column_types?: Record<string, string>;
+    memory_usage_mb?: number;
+    null_counts?: Record<string, number>;
+  };
+  pagination?: {
+    page: number;
+    page_size: number;
+    total_items: number;
+    total_pages: number;
+    has_next: boolean;
+    has_previous: boolean;
+  };
+}
+
+export interface MultiRoundSamplingResponse {
+  rounds: RoundResult[];
+  residual?: {
+    output_name: string;
+    size: number;
+    data: SamplingResult[];
+  };
+  pagination?: {
+    page: number;
+    page_size: number;
+    total_items: number;
+    total_pages: number;
+    has_next: boolean;
+    has_previous: boolean;
+  };
+}
