@@ -2,11 +2,23 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ResultsTable } from "./results-table"
-import { Download, Copy, FileDown, Database } from "lucide-react"
-import type { MultiRoundSamplingResponse } from "@/lib/api/types"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Separator } from "@/components/ui/separator"
+import { 
+  Download, 
+  Copy, 
+  FileDown, 
+  Database, 
+  ChevronRight,
+  Layers,
+  BarChart3,
+  Eye,
+  EyeOff,
+  CheckCircle2
+} from "lucide-react"
+import type { MultiRoundSamplingResponse, SamplingResult } from "@/lib/api/types"
 import { toast } from "sonner"
+import { cn } from "@/lib/utils"
 
 interface MultiRoundResultsProps {
   results: MultiRoundSamplingResponse
@@ -14,10 +26,20 @@ interface MultiRoundResultsProps {
 }
 
 export function MultiRoundResults({ results, isLoading = false }: MultiRoundResultsProps) {
-  const getRoundName = (round: typeof results.rounds[0]) => `round_${round.round_number}_${round.method}`
-  const [activeTab, setActiveTab] = useState(results.rounds[0] ? getRoundName(results.rounds[0]) : "round_1")
+  const [expandedRounds, setExpandedRounds] = useState<Set<number>>(new Set([1]))
+  const [showResidual, setShowResidual] = useState(false)
 
-  const handleDownloadRound = (roundData: Record<string, unknown>[], outputName: string) => {
+  const toggleRound = (roundNumber: number) => {
+    const newExpanded = new Set(expandedRounds)
+    if (newExpanded.has(roundNumber)) {
+      newExpanded.delete(roundNumber)
+    } else {
+      newExpanded.add(roundNumber)
+    }
+    setExpandedRounds(newExpanded)
+  }
+
+  const handleDownloadRound = (roundData: SamplingResult[], fileName: string) => {
     if (!roundData || roundData.length === 0) return
     
     const csv = [
@@ -33,44 +55,42 @@ export function MultiRoundResults({ results, isLoading = false }: MultiRoundResu
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${outputName}.csv`
+    a.download = `${fileName}.csv`
     a.click()
     URL.revokeObjectURL(url)
-    toast.success(`Downloaded ${outputName}.csv`)
+    toast.success(`Downloaded ${fileName}.csv`)
   }
 
-  const handleCopyToClipboard = (data: Record<string, unknown>[]) => {
-    if (!data || data.length === 0) return
-    
+  const handleCopyToClipboard = (data: SamplingResult[]) => {
     const text = JSON.stringify(data, null, 2)
     navigator.clipboard.writeText(text)
     toast.success("Data copied to clipboard!")
   }
 
   const handleDownloadAll = () => {
-    // Create a zip file or multiple downloads
-    results.rounds.forEach(round => {
-      handleDownloadRound(round.data, round.output_name)
-    })
-    if (results.residual) {
-      handleDownloadRound(results.residual.data, "residual")
-    }
+    const allData = results.rounds.flatMap(round => round.data)
+    handleDownloadRound(allData, "all_rounds_combined")
   }
 
   const totalSamples = results.rounds.reduce((sum, round) => sum + round.sample_size, 0)
   const totalRows = totalSamples + (results.residual?.size || 0)
 
   return (
-    <div className="space-y-4">
-      {/* Summary Card */}
-      <Card>
+    <div className="space-y-6">
+      {/* Summary Overview */}
+      <Card className="border-2">
         <CardHeader>
           <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Multi-Round Sampling Results</CardTitle>
-              <CardDescription>
-                {results.rounds.length} rounds completed with {totalSamples} total samples
-              </CardDescription>
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <BarChart3 className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle>Sampling Summary</CardTitle>
+                <CardDescription>
+                  Progressive residual sampling completed
+                </CardDescription>
+              </div>
             </div>
             <Button onClick={handleDownloadAll} size="sm" variant="outline">
               <Download className="w-4 h-4 mr-2" />
@@ -79,156 +99,283 @@ export function MultiRoundResults({ results, isLoading = false }: MultiRoundResu
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="space-y-1">
               <p className="text-2xl font-bold">{results.rounds.length}</p>
-              <p className="text-sm text-muted-foreground">Rounds</p>
+              <p className="text-sm text-muted-foreground">Total Rounds</p>
             </div>
-            <div className="text-center">
+            <div className="space-y-1">
               <p className="text-2xl font-bold">{totalSamples.toLocaleString()}</p>
-              <p className="text-sm text-muted-foreground">Total Samples</p>
+              <p className="text-sm text-muted-foreground">Samples Collected</p>
             </div>
-            <div className="text-center">
+            <div className="space-y-1">
               <p className="text-2xl font-bold">{results.residual ? results.residual.size.toLocaleString() : '0'}</p>
-              <p className="text-sm text-muted-foreground">Residual Rows</p>
+              <p className="text-sm text-muted-foreground">Residual Records</p>
             </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold">{totalRows.toLocaleString()}</p>
-              <p className="text-sm text-muted-foreground">Total Rows</p>
+            <div className="space-y-1">
+              <p className="text-2xl font-bold">{((totalSamples / totalRows) * 100).toFixed(1)}%</p>
+              <p className="text-sm text-muted-foreground">Sample Coverage</p>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Results Tabs */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Sample Data</CardTitle>
-          <CardDescription>View data from each sampling round</CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <div className="border-b px-6">
-              <TabsList className="h-auto flex-wrap justify-start gap-2 bg-transparent p-0 py-2">
-                {results.rounds.map((round) => {
-                  const roundName = getRoundName(round)
-                  return (
-                    <TabsTrigger
-                      key={roundName}
-                      value={roundName}
-                      className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                    >
+      {/* Sampling Rounds */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold flex items-center gap-2">
+          <Layers className="w-5 h-5" />
+          Sampling Rounds
+        </h3>
+        
+        {results.rounds.map((round, index) => {
+          const isExpanded = expandedRounds.has(round.round_number)
+          const isLast = index === results.rounds.length - 1
+          
+          return (
+            <Card 
+              key={round.round_number} 
+              className={cn(
+                "transition-all duration-200",
+                isExpanded && "ring-2 ring-primary/20"
+              )}
+            >
+              <CardHeader 
+                className="cursor-pointer"
+                onClick={() => toggleRound(round.round_number)}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      "flex items-center justify-center w-10 h-10 rounded-full",
+                      "bg-primary/10 text-primary font-semibold"
+                    )}>
+                      {round.round_number}
+                    </div>
+                    <div>
                       <div className="flex items-center gap-2">
-                        <span>Round {round.round_number}</span>
-                        <Badge variant="secondary" className="text-xs">
-                          {round.sample_size.toLocaleString()} rows
+                        <CardTitle className="text-base">
+                          Round {round.round_number}
+                        </CardTitle>
+                        <Badge variant="secondary" className="capitalize">
+                          {round.method}
+                        </Badge>
+                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                      </div>
+                      <CardDescription className="mt-1">
+                        {round.sample_size.toLocaleString()} samples
+                        {round.summary && (
+                          <span className="text-muted-foreground">
+                            {' '}• {round.summary.total_columns} columns
+                          </span>
+                        )}
+                      </CardDescription>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleCopyToClipboard(round.data)
+                      }}
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDownloadRound(round.data, `round_${round.round_number}_${round.method}`)
+                      }}
+                    >
+                      <FileDown className="w-4 h-4" />
+                    </Button>
+                    <ChevronRight className={cn(
+                      "w-4 h-4 transition-transform",
+                      isExpanded && "rotate-90"
+                    )} />
+                  </div>
+                </div>
+              </CardHeader>
+              
+              {isExpanded && (
+                <CardContent className="pt-0">
+                  <Separator className="mb-4" />
+                  <div className="space-y-4">
+                    {/* Sample preview */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-sm font-medium">Data Preview</h4>
+                        <Badge variant="outline" className="text-xs">
+                          Showing first 5 rows
                         </Badge>
                       </div>
-                    </TabsTrigger>
-                  )
-                })}
-                {results.residual && (
-                  <TabsTrigger
-                    value="residual"
-                    className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Database className="w-3 h-3" />
-                      <span>Residual</span>
-                      <Badge variant="secondary" className="text-xs">
-                        {results.residual.size.toLocaleString()} rows
-                      </Badge>
+                      <div className="border rounded-lg overflow-hidden">
+                        <ScrollArea className="h-[200px]">
+                          <table className="w-full text-sm">
+                            <thead className="bg-muted/50 sticky top-0">
+                              <tr>
+                                {round.data.length > 0 && Object.keys(round.data[0]).slice(0, 5).map((key) => (
+                                  <th key={key} className="text-left p-2 font-medium">
+                                    {key}
+                                  </th>
+                                ))}
+                                {round.data.length > 0 && Object.keys(round.data[0]).length > 5 && (
+                                  <th className="text-left p-2 text-muted-foreground">
+                                    +{Object.keys(round.data[0]).length - 5} more
+                                  </th>
+                                )}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {round.data.slice(0, 5).map((row, idx) => (
+                                <tr key={idx} className="border-t">
+                                  {Object.entries(row).slice(0, 5).map(([key, value]) => (
+                                    <td key={key} className="p-2 text-muted-foreground">
+                                      {value?.toString() || '-'}
+                                    </td>
+                                  ))}
+                                  {Object.keys(row).length > 5 && (
+                                    <td className="p-2 text-muted-foreground">...</td>
+                                  )}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </ScrollArea>
+                      </div>
                     </div>
-                  </TabsTrigger>
-                )}
-              </TabsList>
+
+                    {/* Round statistics */}
+                    {round.summary && (
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted/30 rounded-lg">
+                        <div>
+                          <p className="text-sm font-medium">Total Rows</p>
+                          <p className="text-2xl font-bold">{round.summary.total_rows.toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">Columns</p>
+                          <p className="text-2xl font-bold">{round.summary.total_columns}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">Memory Usage</p>
+                          <p className="text-2xl font-bold">{round.summary.memory_usage_mb?.toFixed(2)} MB</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">Sample Rate</p>
+                          <p className="text-2xl font-bold">
+                            {round.pagination ? 
+                              `${((round.sample_size / round.pagination.total_items) * 100).toFixed(1)}%` : 
+                              '100%'
+                            }
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              )}
+            </Card>
+          )
+        })}
+      </div>
+
+      {/* Residual Data */}
+      {results.residual && (
+        <Card className="border-dashed">
+          <CardHeader 
+            className="cursor-pointer"
+            onClick={() => setShowResidual(!showResidual)}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-orange-500/10 rounded-lg">
+                  <Database className="w-5 h-5 text-orange-500" />
+                </div>
+                <div>
+                  <CardTitle className="text-base">Residual Dataset</CardTitle>
+                  <CardDescription>
+                    {results.residual.size.toLocaleString()} unsampled records remaining
+                  </CardDescription>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleCopyToClipboard(results.residual!.data)
+                  }}
+                >
+                  <Copy className="w-4 h-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleDownloadRound(results.residual!.data, "residual_data")
+                  }}
+                >
+                  <FileDown className="w-4 h-4" />
+                </Button>
+                {showResidual ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </div>
             </div>
-
-            {results.rounds.map((round) => {
-              const roundName = getRoundName(round)
-              return (
-                <TabsContent key={roundName} value={roundName} className="m-0">
-                  <div className="border-b px-6 py-3 bg-muted/50">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-medium">Round {round.round_number}: {round.method} sampling</h4>
-                      {round.summary && (
-                        <p className="text-sm text-muted-foreground">
-                          {round.summary.total_rows.toLocaleString()} rows • {round.summary.total_columns} columns
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleCopyToClipboard(round.data)}
-                      >
-                        <Copy className="w-4 h-4 mr-2" />
-                        Copy
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleDownloadRound(round.data, getRoundName(round))}
-                      >
-                        <FileDown className="w-4 h-4 mr-2" />
-                        Download
-                      </Button>
-                    </div>
-                  </div>
+          </CardHeader>
+          
+          {showResidual && results.residual.data.length > 0 && (
+            <CardContent className="pt-0">
+              <Separator className="mb-4" />
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-medium">Residual Data Preview</h4>
+                  <Badge variant="outline" className="text-xs">
+                    Showing first 5 rows
+                  </Badge>
                 </div>
-                <ResultsTable
-                  data={round.data}
-                  outputName={getRoundName(round)}
-                  method={round.method}
-                  isLoading={isLoading}
-                />
-                </TabsContent>
-              )
-            })}
-
-            {results.residual && (
-              <TabsContent value="residual" className="m-0">
-                <div className="border-b px-6 py-3 bg-muted/50">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium">Residual Dataset: {results.residual.output_name}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Remaining data after all sampling rounds
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleCopyToClipboard(results.residual!.data)}
-                      >
-                        <Copy className="w-4 h-4 mr-2" />
-                        Copy
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleDownloadRound(results.residual!.data, results.residual!.output_name)}
-                      >
-                        <FileDown className="w-4 h-4 mr-2" />
-                        Download
-                      </Button>
-                    </div>
-                  </div>
+                <div className="border rounded-lg overflow-hidden">
+                  <ScrollArea className="h-[200px]">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/50 sticky top-0">
+                        <tr>
+                          {Object.keys(results.residual.data[0]).slice(0, 5).map((key) => (
+                            <th key={key} className="text-left p-2 font-medium">
+                              {key}
+                            </th>
+                          ))}
+                          {Object.keys(results.residual.data[0]).length > 5 && (
+                            <th className="text-left p-2 text-muted-foreground">
+                              +{Object.keys(results.residual.data[0]).length - 5} more
+                            </th>
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {results.residual.data.slice(0, 5).map((row, idx) => (
+                          <tr key={idx} className="border-t">
+                            {Object.entries(row).slice(0, 5).map(([key, value]) => (
+                              <td key={key} className="p-2 text-muted-foreground">
+                                {value?.toString() || '-'}
+                              </td>
+                            ))}
+                            {Object.keys(row).length > 5 && (
+                              <td className="p-2 text-muted-foreground">...</td>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </ScrollArea>
                 </div>
-                <ResultsTable
-                  data={results.residual.data}
-                  outputName="residual"
-                  method="residual"
-                  isLoading={isLoading}
-                />
-              </TabsContent>
-            )}
-          </Tabs>
-        </CardContent>
-      </Card>
+              </div>
+            </CardContent>
+          )}
+        </Card>
+      )}
     </div>
   )
 }

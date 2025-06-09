@@ -27,6 +27,7 @@ interface ParametersFormProps {
   isLoading?: boolean
   hideSubmitButton?: boolean
   initialValues?: any
+  showOnlyParameters?: boolean
 }
 
 export function ParametersForm({ 
@@ -37,10 +38,11 @@ export function ParametersForm({
   onSubmit,
   isLoading = false,
   hideSubmitButton = false,
-  initialValues
+  initialValues,
+  showOnlyParameters = false
 }: ParametersFormProps) {
   const [outputName, setOutputName] = useState(initialValues?.output_name || "")
-  const [parameters, setParameters] = useState<any>(initialValues || {})
+  const [parameters, setParameters] = useState<any>(initialValues?.parameters || initialValues || {})
   const [filters, setFilters] = useState<SamplingFilters | undefined>(initialValues?.filters)
   const [selectedColumns, setSelectedColumns] = useState<string[]>(initialValues?.selection?.columns || [])
   const [orderBy, setOrderBy] = useState<string | null>(initialValues?.selection?.order_by || null)
@@ -74,6 +76,26 @@ export function ParametersForm({
     }
   }, [method, initialValues])
 
+  const updateParameters = (newParameters: any) => {
+    setParameters(newParameters)
+    
+    // If in showOnlyParameters mode, immediately notify parent
+    if (showOnlyParameters) {
+      const request: SamplingRequest = {
+        method,
+        parameters: newParameters,
+        output_name: outputName || `${method}_sample`,
+        filters,
+        selection: {
+          columns: selectedColumns.length > 0 ? selectedColumns : null,
+          order_by: orderBy,
+          order_desc: orderDesc
+        }
+      }
+      onSubmit(request)
+    }
+  }
+
   const handleSubmit = () => {
     // Build selection object
     const selection: SamplingSelection = {
@@ -105,7 +127,7 @@ export function ParametersForm({
                 type="number"
                 placeholder="Enter sample size"
                 value={parameters.sample_size || ""}
-                onChange={(e) => setParameters({ ...parameters, sample_size: parseInt(e.target.value) || 0 })}
+                onChange={(e) => updateParameters({ ...parameters, sample_size: parseInt(e.target.value) || 0 })}
               />
               <p className="text-xs text-muted-foreground">Number of rows to randomly select</p>
             </div>
@@ -116,7 +138,7 @@ export function ParametersForm({
                 type="number"
                 placeholder="Enter seed for reproducibility"
                 value={parameters.seed || ""}
-                onChange={(e) => setParameters({ ...parameters, seed: e.target.value ? parseInt(e.target.value) : undefined })}
+                onChange={(e) => updateParameters({ ...parameters, seed: e.target.value ? parseInt(e.target.value) : undefined })}
               />
               <p className="text-xs text-muted-foreground">Set a seed for reproducible results</p>
             </div>
@@ -129,23 +151,24 @@ export function ParametersForm({
             <div className="space-y-2">
               <Label>Strata Columns *</Label>
               <div className="border rounded-md p-3 space-y-2">
-                <div className="flex flex-wrap gap-2 min-h-[38px]">
-                  {parameters.strata_columns?.map((col) => (
-                    <Badge key={col} variant="secondary" className="gap-1">
-                      {col}
-                      <button
-                        type="button"
-                        onClick={() => setParameters({ 
-                          ...parameters, 
-                          strata_columns: parameters.strata_columns?.filter(c => c !== col) 
-                        })}
-                        className="ml-1 hover:text-destructive"
-                      >
-                        ×
-                      </button>
-                    </Badge>
-                  ))}
-                  {(!parameters.strata_columns || parameters.strata_columns.length === 0) && (
+                <div className="flex flex-wrap gap-2 min-h-[38px] items-center">
+                  {parameters.strata_columns && parameters.strata_columns.length > 0 ? (
+                    parameters.strata_columns.map((col: any) => (
+                      <Badge key={col} variant="secondary" className="flex items-center gap-1 px-2 py-1">
+                        <span>{String(col)}</span>
+                        <button
+                          type="button"
+                          onClick={() => updateParameters({ 
+                            ...parameters, 
+                            strata_columns: parameters.strata_columns?.filter((c: any) => c !== col) 
+                          })}
+                          className="ml-1 text-lg leading-none hover:text-destructive"
+                        >
+                          ×
+                        </button>
+                      </Badge>
+                    ))
+                  ) : (
                     <span className="text-muted-foreground text-sm">Select columns for stratification</span>
                   )}
                 </div>
@@ -154,7 +177,7 @@ export function ParametersForm({
                   onValueChange={(value) => {
                     const currentColumns = parameters.strata_columns || []
                     if (!currentColumns.includes(value)) {
-                      setParameters({ ...parameters, strata_columns: [...currentColumns, value] })
+                      updateParameters({ ...parameters, strata_columns: [...currentColumns, value] })
                     }
                   }}
                 >
@@ -180,7 +203,7 @@ export function ParametersForm({
                 step="any"
                 placeholder="Total sample size or percentage (e.g., 1000 or 0.1 for 10%)"
                 value={parameters.sample_size || ""}
-                onChange={(e) => setParameters({ ...parameters, sample_size: e.target.value ? parseFloat(e.target.value) : undefined })}
+                onChange={(e) => updateParameters({ ...parameters, sample_size: e.target.value ? parseFloat(e.target.value) : undefined })}
               />
               <p className="text-xs text-muted-foreground">Enter a whole number for absolute size or decimal &lt; 1 for percentage</p>
             </div>
@@ -191,7 +214,7 @@ export function ParametersForm({
                 type="number"
                 placeholder="Minimum samples per stratum"
                 value={parameters.min_per_stratum || ""}
-                onChange={(e) => setParameters({ ...parameters, min_per_stratum: e.target.value ? parseInt(e.target.value) : undefined })}
+                onChange={(e) => updateParameters({ ...parameters, min_per_stratum: e.target.value ? parseInt(e.target.value) : undefined })}
               />
             </div>
             <div className="space-y-2">
@@ -201,7 +224,7 @@ export function ParametersForm({
                 type="number"
                 placeholder="Enter seed for reproducibility"
                 value={parameters.seed || ""}
-                onChange={(e) => setParameters({ ...parameters, seed: e.target.value ? parseInt(e.target.value) : undefined })}
+                onChange={(e) => updateParameters({ ...parameters, seed: e.target.value ? parseInt(e.target.value) : undefined })}
               />
               <p className="text-xs text-muted-foreground">Set a seed for reproducible stratified sampling</p>
             </div>
@@ -218,7 +241,7 @@ export function ParametersForm({
                 type="number"
                 placeholder="Select every nth row"
                 value={parameters.interval || ""}
-                onChange={(e) => setParameters({ ...parameters, interval: parseInt(e.target.value) || 0 })}
+                onChange={(e) => updateParameters({ ...parameters, interval: parseInt(e.target.value) || 0 })}
               />
               <p className="text-xs text-muted-foreground">Select every nth row from the dataset</p>
             </div>
@@ -229,7 +252,7 @@ export function ParametersForm({
                 type="number"
                 placeholder="Starting row index"
                 value={parameters.start || ""}
-                onChange={(e) => setParameters({ ...parameters, start: e.target.value ? parseInt(e.target.value) : undefined })}
+                onChange={(e) => updateParameters({ ...parameters, start: e.target.value ? parseInt(e.target.value) : undefined })}
               />
               <p className="text-xs text-muted-foreground">Row to start sampling from (default: 0)</p>
             </div>
@@ -243,7 +266,7 @@ export function ParametersForm({
               <Label htmlFor="cluster_column">Cluster Column *</Label>
               <Select
                 value={parameters.cluster_column || ""}
-                onValueChange={(value) => setParameters({ ...parameters, cluster_column: value })}
+                onValueChange={(value) => updateParameters({ ...parameters, cluster_column: value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select cluster column" />
@@ -263,7 +286,7 @@ export function ParametersForm({
                 type="number"
                 placeholder="Number of clusters to select"
                 value={parameters.num_clusters || ""}
-                onChange={(e) => setParameters({ ...parameters, num_clusters: parseInt(e.target.value) || 0 })}
+                onChange={(e) => updateParameters({ ...parameters, num_clusters: parseInt(e.target.value) || 0 })}
               />
             </div>
             <div className="space-y-2">
@@ -273,7 +296,7 @@ export function ParametersForm({
                 type="number"
                 placeholder="Samples per cluster (leave empty for all)"
                 value={parameters.sample_within_clusters || ""}
-                onChange={(e) => setParameters({ ...parameters, sample_within_clusters: e.target.value ? parseInt(e.target.value) : undefined })}
+                onChange={(e) => updateParameters({ ...parameters, sample_within_clusters: e.target.value ? parseInt(e.target.value) : undefined })}
               />
               <p className="text-xs text-muted-foreground">Number of samples to take from each cluster, or leave empty to take all</p>
             </div>
@@ -289,7 +312,7 @@ export function ParametersForm({
               placeholder="e.g., listed_in LIKE '%Action%' AND release_year >= 2015"
               className="min-h-[120px] font-mono text-sm"
               value={parameters.query || ""}
-              onChange={(e) => setParameters({ ...parameters, query: e.target.value })}
+              onChange={(e) => updateParameters({ ...parameters, query: e.target.value })}
             />
             <p className="text-xs text-muted-foreground">
               Write a WHERE clause condition for custom filtering. The expression will be applied as a filter to the dataset.
@@ -327,6 +350,15 @@ export function ParametersForm({
       default:
         return false
     }
+  }
+
+  // If showing only parameters, return just the parameter fields
+  if (showOnlyParameters) {
+    return (
+      <div className="space-y-4">
+        {renderParameterInputs()}
+      </div>
+    )
   }
 
   return (

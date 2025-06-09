@@ -83,11 +83,11 @@ export function SamplingPage() {
 
   // Fetch dataset columns for the form
   const { data: datasetInfo } = useQuery({
-    queryKey: ['dataset-columns', selectedDataset?.id, selectedVersion?.id],
+    queryKey: ['sampling-columns', selectedDataset?.id, selectedVersion?.id],
     queryFn: async () => {
       if (!selectedDataset || !selectedVersion) return null
       const response = await fetch(
-        `http://127.0.0.1:8000/api/datasets/${selectedDataset.id}/versions/${selectedVersion.id}/data?limit=1`,
+        `http://127.0.0.1:8000/api/sampling/${selectedDataset.id}/${selectedVersion.id}/columns`,
         {
           headers: {
             'Accept': 'application/json',

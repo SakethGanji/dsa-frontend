@@ -8,7 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible"
 import {
   Plus,
@@ -144,20 +143,14 @@ export function MultiRoundForm({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold">Configure Multi-Round Sampling</h3>
-          <p className="text-sm text-muted-foreground">
-            Each round samples from the remaining data after previous rounds
-          </p>
-        </div>
+      <div className="flex items-center justify-end">
         <Button onClick={addRound} size="sm" variant="outline">
           <Plus className="w-4 h-4 mr-2" />
           Add Round
         </Button>
       </div>
 
-      <ScrollArea className="h-[500px] pr-4">
+      <div className="pr-4">
         <div className="space-y-3">
           <AnimatePresence>
             {rounds.map((round, index) => (
@@ -296,7 +289,8 @@ export function MultiRoundForm({
                                 }}
                                 isLoading={false}
                                 hideSubmitButton
-                                initialValues={round.parameters}
+                                showOnlyParameters
+                                initialValues={{ parameters: round.parameters }}
                               />
                             </div>
                           </TabsContent>
@@ -330,7 +324,7 @@ export function MultiRoundForm({
             ))}
           </AnimatePresence>
         </div>
-      </ScrollArea>
+      </div>
 
       <Card className="p-4">
         <div className="flex items-center justify-between">
