@@ -2,16 +2,30 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
+import { 
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+} from "@/components/ui/pagination"
 import { 
   Download, 
   Copy, 
   FileDown, 
   Database, 
   ChevronRight,
+  ChevronLeft,
   Layers,
-  BarChart3,
   Eye,
   EyeOff,
   CheckCircle2
@@ -23,9 +37,18 @@ import { cn } from "@/lib/utils"
 interface MultiRoundResultsProps {
   results: MultiRoundSamplingResponse
   isLoading?: boolean
+  onPageChange?: (page: number) => void
+  currentPage?: number
+  totalPages?: number
 }
 
-export function MultiRoundResults({ results, isLoading = false }: MultiRoundResultsProps) {
+export function MultiRoundResults({ 
+  results, 
+  isLoading = false,
+  onPageChange,
+  currentPage = 1,
+  totalPages = 1
+}: MultiRoundResultsProps) {
   const [expandedRounds, setExpandedRounds] = useState<Set<number>>(new Set([1]))
   const [showResidual, setShowResidual] = useState(false)
 
@@ -61,75 +84,68 @@ export function MultiRoundResults({ results, isLoading = false }: MultiRoundResu
     toast.success(`Downloaded ${fileName}.csv`)
   }
 
-  const handleCopyToClipboard = (data: SamplingResult[]) => {
-    const text = JSON.stringify(data, null, 2)
-    navigator.clipboard.writeText(text)
-    toast.success("Data copied to clipboard!")
+  const handleCopyToClipboard = async (data: SamplingResult[]) => {
+    try {
+      const text = JSON.stringify(data, null, 2)
+      await navigator.clipboard.writeText(text)
+      toast.success("Data copied to clipboard!")
+    } catch {
+      toast.error("Failed to copy to clipboard")
+    }
   }
+  
 
-  const handleDownloadAll = () => {
+  const handleDownloadAll = async () => {
+    // For now, just download the displayed data
+    // In a real implementation, this would fetch all pages from the server
     const allData = results.rounds.flatMap(round => round.data)
     handleDownloadRound(allData, "all_rounds_combined")
+    
+    if (totalSamples > displayedSamples) {
+      toast.info("Downloaded displayed samples. For complete dataset, please use the API export endpoint.")
+    }
   }
 
-  const totalSamples = results.rounds.reduce((sum, round) => sum + round.sample_size, 0)
-  const totalRows = totalSamples + (results.residual?.size || 0)
+  const totalSamples = results.rounds.reduce((sum, round) => sum + (round.pagination?.total_items || round.data.length), 0)
+  const displayedSamples = results.rounds.reduce((sum, round) => sum + round.data.length, 0)
 
   return (
-    <div className="space-y-6">
-      {/* Summary Overview */}
-      <Card className="border-2">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <BarChart3 className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <CardTitle>Sampling Summary</CardTitle>
-                <CardDescription>
-                  Progressive residual sampling completed
-                </CardDescription>
-              </div>
-            </div>
-            <Button onClick={handleDownloadAll} size="sm" variant="outline">
-              <Download className="w-4 h-4 mr-2" />
-              Download All
-            </Button>
+    <div className="space-y-6 relative">
+      {isLoading && (
+        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center">
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent"></div>
+            <span className="text-sm font-medium">Loading...</span>
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <div className="space-y-1">
-              <p className="text-2xl font-bold">{results.rounds.length}</p>
-              <p className="text-sm text-muted-foreground">Total Rounds</p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-2xl font-bold">{totalSamples.toLocaleString()}</p>
-              <p className="text-sm text-muted-foreground">Samples Collected</p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-2xl font-bold">{results.residual ? results.residual.size.toLocaleString() : '0'}</p>
-              <p className="text-sm text-muted-foreground">Residual Records</p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-2xl font-bold">{((totalSamples / totalRows) * 100).toFixed(1)}%</p>
-              <p className="text-sm text-muted-foreground">Sample Coverage</p>
-            </div>
+        </div>
+      )}
+      {/* Header with download all button */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Layers className="w-5 h-5" />
+            <h3 className="text-lg font-semibold">
+              {results.rounds.length} Sampling Rounds • {totalSamples.toLocaleString()} Total Samples
+            </h3>
           </div>
-        </CardContent>
-      </Card>
+          <Button onClick={handleDownloadAll} size="sm" variant="outline">
+            <Download className="w-4 h-4 mr-2" />
+            Download All Data
+          </Button>
+        </div>
+        {totalSamples > displayedSamples && (
+          <p className="text-sm text-muted-foreground">
+            Viewing {displayedSamples.toLocaleString()} of {totalSamples.toLocaleString()} samples. 
+            {onPageChange ? "Navigate pages below or download full dataset separately." : "Use the download button to get all samples."}
+          </p>
+        )}
+      </div>
 
       {/* Sampling Rounds */}
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold flex items-center gap-2">
-          <Layers className="w-5 h-5" />
-          Sampling Rounds
-        </h3>
         
-        {results.rounds.map((round, index) => {
+        {results.rounds.map((round) => {
           const isExpanded = expandedRounds.has(round.round_number)
-          const isLast = index === results.rounds.length - 1
           
           return (
             <Card 
@@ -162,11 +178,24 @@ export function MultiRoundResults({ results, isLoading = false }: MultiRoundResu
                         <CheckCircle2 className="w-4 h-4 text-green-500" />
                       </div>
                       <CardDescription className="mt-1">
-                        {round.sample_size.toLocaleString()} samples
-                        {round.summary && (
-                          <span className="text-muted-foreground">
-                            {' '}• {round.summary.total_columns} columns
-                          </span>
+                        {round.pagination ? (
+                          <>
+                            Viewing {round.data.length.toLocaleString()} of {round.pagination.total_items.toLocaleString()} samples
+                            {round.summary && (
+                              <span className="text-muted-foreground">
+                                {' '}• {round.summary.total_columns} columns
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            {round.data.length.toLocaleString()} samples
+                            {round.summary && (
+                              <span className="text-muted-foreground">
+                                {' '}• {round.summary.total_columns} columns
+                              </span>
+                            )}
+                          </>
                         )}
                       </CardDescription>
                     </div>
@@ -205,75 +234,56 @@ export function MultiRoundResults({ results, isLoading = false }: MultiRoundResu
                   <Separator className="mb-4" />
                   <div className="space-y-4">
                     {/* Sample preview */}
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="text-sm font-medium">Data Preview</h4>
-                        <Badge variant="outline" className="text-xs">
-                          Showing first 5 rows
-                        </Badge>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-medium">Sample Data</h4>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {round.data.length} rows × {round.data.length > 0 ? Object.keys(round.data[0]).length : 0} columns
+                          </Badge>
+                          {round.pagination && (
+                            <Badge variant="secondary" className="text-xs">
+                              API: {round.pagination.total_items} total items
+                            </Badge>
+                          )}
+                        </div>
                       </div>
+                      
                       <div className="border rounded-lg overflow-hidden">
-                        <ScrollArea className="h-[200px]">
-                          <table className="w-full text-sm">
-                            <thead className="bg-muted/50 sticky top-0">
-                              <tr>
-                                {round.data.length > 0 && Object.keys(round.data[0]).slice(0, 5).map((key) => (
-                                  <th key={key} className="text-left p-2 font-medium">
-                                    {key}
-                                  </th>
-                                ))}
-                                {round.data.length > 0 && Object.keys(round.data[0]).length > 5 && (
-                                  <th className="text-left p-2 text-muted-foreground">
-                                    +{Object.keys(round.data[0]).length - 5} more
-                                  </th>
-                                )}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {round.data.slice(0, 5).map((row, idx) => (
-                                <tr key={idx} className="border-t">
-                                  {Object.entries(row).slice(0, 5).map(([key, value]) => (
-                                    <td key={key} className="p-2 text-muted-foreground">
-                                      {value?.toString() || '-'}
-                                    </td>
+                        <ScrollArea className="h-[400px] w-full">
+                          {round.data.length > 0 ? (
+                            <Table>
+                              <TableHeader className="sticky top-0 bg-muted/50 z-10">
+                                <TableRow>
+                                  {Object.keys(round.data[0]).map((key) => (
+                                    <TableHead key={key} className="font-medium">
+                                      {key}
+                                    </TableHead>
                                   ))}
-                                  {Object.keys(row).length > 5 && (
-                                    <td className="p-2 text-muted-foreground">...</td>
-                                  )}
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {round.data.map((row, idx) => (
+                                  <TableRow key={idx}>
+                                    {Object.entries(row).map(([key, value]) => (
+                                      <TableCell key={key} className="text-muted-foreground">
+                                        {value?.toString() || '-'}
+                                      </TableCell>
+                                    ))}
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          ) : (
+                            <div className="flex items-center justify-center h-full text-muted-foreground">
+                              <p>No data available</p>
+                            </div>
+                          )}
+                          <ScrollBar orientation="horizontal" />
+                          <ScrollBar orientation="vertical" />
                         </ScrollArea>
                       </div>
                     </div>
-
-                    {/* Round statistics */}
-                    {round.summary && (
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted/30 rounded-lg">
-                        <div>
-                          <p className="text-sm font-medium">Total Rows</p>
-                          <p className="text-2xl font-bold">{round.summary.total_rows.toLocaleString()}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">Columns</p>
-                          <p className="text-2xl font-bold">{round.summary.total_columns}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">Memory Usage</p>
-                          <p className="text-2xl font-bold">{round.summary.memory_usage_mb?.toFixed(2)} MB</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">Sample Rate</p>
-                          <p className="text-2xl font-bold">
-                            {round.pagination ? 
-                              `${((round.sample_size / round.pagination.total_items) * 100).toFixed(1)}%` : 
-                              '100%'
-                            }
-                          </p>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </CardContent>
               )}
@@ -330,51 +340,149 @@ export function MultiRoundResults({ results, isLoading = false }: MultiRoundResu
           {showResidual && results.residual.data.length > 0 && (
             <CardContent className="pt-0">
               <Separator className="mb-4" />
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm font-medium">Residual Data Preview</h4>
-                  <Badge variant="outline" className="text-xs">
-                    Showing first 5 rows
-                  </Badge>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-medium">Residual Data</h4>
+                  {results.residual.data.length > 0 && (
+                    <Badge variant="outline" className="text-xs">
+                      {results.residual.data.length} rows × {Object.keys(results.residual.data[0]).length} columns
+                    </Badge>
+                  )}
                 </div>
+                
                 <div className="border rounded-lg overflow-hidden">
-                  <ScrollArea className="h-[200px]">
-                    <table className="w-full text-sm">
-                      <thead className="bg-muted/50 sticky top-0">
-                        <tr>
-                          {Object.keys(results.residual.data[0]).slice(0, 5).map((key) => (
-                            <th key={key} className="text-left p-2 font-medium">
-                              {key}
-                            </th>
-                          ))}
-                          {Object.keys(results.residual.data[0]).length > 5 && (
-                            <th className="text-left p-2 text-muted-foreground">
-                              +{Object.keys(results.residual.data[0]).length - 5} more
-                            </th>
-                          )}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {results.residual.data.slice(0, 5).map((row, idx) => (
-                          <tr key={idx} className="border-t">
-                            {Object.entries(row).slice(0, 5).map(([key, value]) => (
-                              <td key={key} className="p-2 text-muted-foreground">
-                                {value?.toString() || '-'}
-                              </td>
+                  <ScrollArea className="h-[400px] w-full">
+                    {results.residual.data.length > 0 ? (
+                      <Table>
+                        <TableHeader className="sticky top-0 bg-muted/50 z-10">
+                          <TableRow>
+                            {Object.keys(results.residual.data[0]).map((key) => (
+                              <TableHead key={key} className="font-medium">
+                                {key}
+                              </TableHead>
                             ))}
-                            {Object.keys(row).length > 5 && (
-                              <td className="p-2 text-muted-foreground">...</td>
-                            )}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {results.residual.data.map((row, idx) => (
+                            <TableRow key={idx}>
+                              {Object.entries(row).map(([key, value]) => (
+                                <TableCell key={key} className="text-muted-foreground">
+                                  {value?.toString() || '-'}
+                                </TableCell>
+                              ))}
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-muted-foreground">
+                        <p>No residual data</p>
+                      </div>
+                    )}
+                    <ScrollBar orientation="horizontal" />
+                    <ScrollBar orientation="vertical" />
                   </ScrollArea>
                 </div>
               </div>
             </CardContent>
           )}
         </Card>
+      )}
+
+      {/* Server-side Pagination */}
+      {onPageChange && totalPages > 1 && (
+        <div className="flex items-center justify-between bg-muted/30 rounded-lg p-4">
+          <p className="text-sm text-muted-foreground">
+            Page {currentPage} of {totalPages} • {displayedSamples.toLocaleString()} samples on this page
+          </p>
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onPageChange(currentPage - 1)}
+                  disabled={currentPage === 1 || isLoading}
+                  className="gap-1 pl-2.5"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  <span>Previous</span>
+                </Button>
+              </PaginationItem>
+              
+              {(() => {
+                const pages = []
+                const maxPagesToShow = 7
+                const halfRange = Math.floor(maxPagesToShow / 2)
+                
+                let startPage = Math.max(1, currentPage - halfRange)
+                let endPage = Math.min(totalPages, currentPage + halfRange)
+                
+                // Adjust if we're near the beginning or end
+                if (currentPage <= halfRange) {
+                  endPage = Math.min(totalPages, maxPagesToShow)
+                } else if (currentPage >= totalPages - halfRange) {
+                  startPage = Math.max(1, totalPages - maxPagesToShow + 1)
+                }
+                
+                // Always show first page
+                if (startPage > 1) {
+                  pages.push(1)
+                  if (startPage > 2) pages.push('...')
+                }
+                
+                // Show page range
+                for (let i = startPage; i <= endPage; i++) {
+                  pages.push(i)
+                }
+                
+                // Always show last page
+                if (endPage < totalPages) {
+                  if (endPage < totalPages - 1) pages.push('...')
+                  pages.push(totalPages)
+                }
+                
+                return pages.map((page, idx) => {
+                  if (page === '...') {
+                    return (
+                      <PaginationItem key={`ellipsis-${idx}`}>
+                        <PaginationEllipsis />
+                      </PaginationItem>
+                    )
+                  }
+                  
+                  return (
+                    <PaginationItem key={page}>
+                      <Button
+                        variant={currentPage === page ? "outline" : "ghost"}
+                        size="icon"
+                        onClick={() => onPageChange(page as number)}
+                        disabled={isLoading}
+                        className="w-9 h-9"
+                      >
+                        {page}
+                      </Button>
+                    </PaginationItem>
+                  )
+                })
+              })()}
+              
+              <PaginationItem>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onPageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages || isLoading}
+                  className="gap-1 pr-2.5"
+                >
+                  <span>Next</span>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
       )}
     </div>
   )

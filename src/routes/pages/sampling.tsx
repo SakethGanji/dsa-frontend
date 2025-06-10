@@ -18,7 +18,7 @@ import {
 import { DatasetSearchBar } from "@/components/dataset-search"
 import { useDatasetVersions } from "@/hooks"
 import { useMultiRoundSampling } from "@/hooks/use-multi-round-sampling"
-import { MultiRoundForm } from "@/components/sampling/multi-round-form"
+import { MultiRoundFormV3 } from "@/components/sampling/multi-round-form-v3"
 import { MultiRoundResults } from "@/components/sampling/multi-round-results"
 import type { Dataset, DatasetVersion, MultiRoundSamplingRequest, MultiRoundSamplingResponse } from "@/lib/api/types"
 import { format } from "date-fns"
@@ -39,11 +39,13 @@ export function SamplingPage() {
   const [selectedVersion, setSelectedVersion] = useState<DatasetVersion | null>(null)
   const [samplingResponse, setSamplingResponse] = useState<MultiRoundSamplingResponse | null>(null)
   const [compactView, setCompactView] = useState(false)
+  const [lastRequest, setLastRequest] = useState<MultiRoundSamplingRequest | null>(null)
   
-  // Pagination state - kept for potential future use
-  // const [currentPage, setCurrentPage] = useState(1)
-  // const [pageSize, setPageSize] = useState(50)
-  // const [totalItems, setTotalItems] = useState(0)
+  // Pagination state for server-side pagination
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize] = useState(100) // Fixed page size for consistency
+  const [totalPages, setTotalPages] = useState(1)
+  const [isLoadingPage, setIsLoadingPage] = useState(false)
 
   // Query hooks
   const { data: versions, isLoading: versionsLoading } = useDatasetVersions(
@@ -61,8 +63,12 @@ export function SamplingPage() {
       } else {
         setSamplingResponse(data)
         setCurrentStep(4)
-        const totalRows = data.rounds?.reduce((acc: number, round) => acc + round.data.length, 0) || 0
-        toast.success(`Multi-round sampling completed! ${data.rounds?.length || 0} rounds processed with ${totalRows} total rows.`)
+        // Calculate total pages based on first round's pagination info
+        if (data.rounds?.[0]?.pagination) {
+          setTotalPages(data.rounds[0].pagination.total_pages)
+        }
+        const totalRows = data.rounds?.reduce((acc: number, round) => acc + (round.pagination?.total_items || round.data.length), 0) || 0
+        toast.success(`Multi-round sampling completed! ${data.rounds?.length || 0} rounds processed with ${totalRows.toLocaleString()} total rows.`)
       }
     },
     onError: (error) => {
@@ -70,16 +76,24 @@ export function SamplingPage() {
     },
   })
   
-  // Pagination functions - kept for potential future use
-  // const handlePageChange = (newPage: number) => {
-  //   if (!selectedDataset || !selectedVersion || !lastRequest) return
-  //   // Implementation for multi-round pagination
-  // }
-  
-  // const handlePageSizeChange = (newPageSize: number) => {
-  //   if (!selectedDataset || !selectedVersion || !lastRequest) return
-  //   // Implementation for multi-round pagination
-  // }
+  // Handle page change for server-side pagination
+  const handlePageChange = async (newPage: number) => {
+    if (!selectedDataset || !selectedVersion || !lastRequest) return
+    
+    setIsLoadingPage(true)
+    setCurrentPage(newPage)
+    
+    try {
+      const data = await fetchPage(newPage)
+      if (data) {
+        setSamplingResponse(data)
+      }
+    } catch {
+      toast.error("Failed to load page")
+    } finally {
+      setIsLoadingPage(false)
+    }
+  }
 
   // Fetch dataset columns for the form
   const { data: datasetInfo } = useQuery({
@@ -117,13 +131,47 @@ export function SamplingPage() {
   const handleMultiRoundSubmit = (request: MultiRoundSamplingRequest) => {
     if (!selectedDataset || !selectedVersion) return
     
+    setLastRequest(request)
+    setCurrentPage(1) // Reset to first page
     samplingMutation.mutate({
       datasetId: selectedDataset.id,
       versionId: selectedVersion.id,
       request: request,
       page: 1,
-      pageSize: 100
+      pageSize: pageSize
     })
+  }
+
+  // Function to fetch a specific page of data
+  const fetchPage = async (page: number) => {
+    if (!selectedDataset || !selectedVersion || !lastRequest) return null
+    
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:8000/api/sampling/${selectedDataset.id}/${selectedVersion.id}/multi-round/execute?page=${page}&page_size=${pageSize}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${JSON.parse(localStorage.getItem('auth_tokens') || '{}').access_token}`
+          },
+          body: JSON.stringify(lastRequest)
+        }
+      )
+      
+      if (response.ok) {
+        const data = await response.json()
+        // Update total pages if pagination info is available
+        if (data.rounds?.[0]?.pagination) {
+          setTotalPages(data.rounds[0].pagination.total_pages)
+        }
+        return data
+      }
+    } catch {
+      console.error(`Failed to fetch page ${page}`)
+    }
+    return null
   }
 
 
@@ -444,16 +492,16 @@ export function SamplingPage() {
                           {currentStep > 3 ? <Check className="w-4 h-4" /> : <FlaskConical className="w-4 h-4" />}
                         </div>
                         <div>
-                          <CardTitle className="text-lg">Configure Multi-Round Sampling</CardTitle>
+                          <CardTitle className="text-lg">Sampling Configuration</CardTitle>
                           <CardDescription className="text-sm">
-                            Set up progressive residual sampling rounds
+                            Define your sampling strategy with multiple rounds
                           </CardDescription>
                         </div>
                       </div>
                     </CardHeader>
 
                     <CardContent>
-                      <MultiRoundForm
+                      <MultiRoundFormV3
                         datasetId={selectedDataset.id}
                         versionId={selectedVersion.id}
                         datasetColumns={datasetInfo?.columns || []}
@@ -506,10 +554,13 @@ export function SamplingPage() {
                       </div>
                     </CardHeader>
 
-                    <CardContent className="p-0">
+                    <CardContent className="p-6">
                       <MultiRoundResults
                         results={samplingResponse}
-                        isLoading={samplingMutation.isPending}
+                        isLoading={samplingMutation.isPending || isLoadingPage}
+                        onPageChange={handlePageChange}
+                        currentPage={currentPage}
+                        totalPages={totalPages}
                       />
                     </CardContent>
                   </Card>
