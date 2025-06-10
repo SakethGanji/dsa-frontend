@@ -3,7 +3,8 @@ import type {
   Token, LoginRequest, UserOut, UserCreate, 
   Dataset, DatasetListParams, DatasetUpdate, DatasetUploadParams,
   DatasetUploadResponse, DatasetVersion, Tag, SheetDataParams,
-  ExploreRequest, SamplingRequest, SamplingResult
+  ExploreRequest, SamplingRequest, SamplingResult,
+  MultiRoundSamplingRequest, MultiRoundSamplingResponse
 } from './types';
 
 // Re-export client
@@ -202,5 +203,29 @@ export const api = {
       
       return [];
     },
+    
+    getColumns: (datasetId: number, versionId: number) =>
+      apiClient<{
+        columns: string[],
+        column_types: Record<string, string>,
+        total_rows: number,
+        null_counts: Record<string, number>,
+        sample_values: Record<string, any[]>
+      }>({
+        endpoint: `/sampling/${datasetId}/${versionId}/columns`,
+        requireAuth: true,
+      }),
+    
+    executeMultiRound: (datasetId: number, versionId: number, request: MultiRoundSamplingRequest, page?: number, pageSize?: number) =>
+      apiClient<MultiRoundSamplingResponse>({
+        endpoint: `/sampling/${datasetId}/${versionId}/multi-round/execute`,
+        method: 'POST',
+        data: request,
+        params: {
+          ...(page !== undefined && { page }),
+          ...(pageSize !== undefined && { page_size: pageSize })
+        },
+        requireAuth: true,
+      }),
   },
 };

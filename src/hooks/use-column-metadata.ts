@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { apiClient } from "@/lib/api/client"
+import { api } from "@/lib/api/index"
 
 interface ColumnMetadata {
   columns: string[]
@@ -12,12 +12,7 @@ interface ColumnMetadata {
 export function useColumnMetadata(datasetId: number, versionId: number, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['column-metadata', datasetId, versionId],
-    queryFn: async () => {
-      const response = await apiClient.get<ColumnMetadata>(
-        `/api/sampling/${datasetId}/${versionId}/columns`
-      )
-      return response.data
-    },
+    queryFn: () => api.sampling.getColumns(datasetId, versionId),
     enabled: options?.enabled ?? true,
     staleTime: 5 * 60 * 1000, // Consider data stale after 5 minutes
   })
