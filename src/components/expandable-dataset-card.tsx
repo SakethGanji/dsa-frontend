@@ -89,14 +89,14 @@ const ActionButtons = ({ datasetId, onView, onDownload, onSave, layoutId }: Acti
             <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 rounded-full bg-transparent hover:bg-rose-50 dark:hover:bg-rose-900/20"
+                className="h-7 w-7 rounded-full bg-transparent hover:bg-destructive/10"
                 onClick={(e) => {
                     e.stopPropagation()
                     onSave(datasetId)
                 }}
                 aria-label="Save"
             >
-                <IconBookmark className="h-3.5 w-3.5 text-rose-500 dark:text-rose-400" stroke={2} />
+                <IconBookmark className="h-3.5 w-3.5 text-destructive" stroke={2} />
             </Button>
         </motion.div>
 
@@ -105,14 +105,14 @@ const ActionButtons = ({ datasetId, onView, onDownload, onSave, layoutId }: Acti
             <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 rounded-full bg-transparent hover:bg-sky-50 dark:hover:bg-sky-900/20"
+                className="h-7 w-7 rounded-full bg-transparent hover:bg-blue-500/10"
                 onClick={(e) => {
                     e.stopPropagation()
                     onDownload(datasetId)
                 }}
                 aria-label="Download"
             >
-                <IconCloudDownload className="h-3.5 w-3.5 text-sky-500 dark:text-sky-400" stroke={2} />
+                <IconCloudDownload className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" stroke={2} />
             </Button>
         </motion.div>
 
@@ -121,14 +121,14 @@ const ActionButtons = ({ datasetId, onView, onDownload, onSave, layoutId }: Acti
             <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 rounded-full bg-transparent hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                className="h-7 w-7 rounded-full bg-transparent hover:bg-green-500/10"
                 onClick={(e) => {
                     e.stopPropagation()
                     onView(datasetId)
                 }}
                 aria-label="View"
             >
-                <IconArrowUpRight className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" stroke={2} />
+                <IconArrowUpRight className="h-3.5 w-3.5 text-green-600 dark:text-green-400" stroke={2} />
             </Button>
         </motion.div>
     </motion.div>

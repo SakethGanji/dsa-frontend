@@ -194,28 +194,28 @@ export default function TableView({ onNext, onPrevious, datasetId }: TableViewPr
     <div className="p-6 space-y-6">
       {isLoadingDataset || isLoadingVersions ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
-          <span className="ml-2 text-gray-500 dark:text-gray-400">Loading dataset...</span>
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <span className="ml-2 text-muted-foreground">Loading dataset...</span>
         </div>
       ) : !dataset ? (
         <div className="text-center py-8">
-          <p className="text-red-500 dark:text-red-400">Failed to load dataset</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Please go back and select another dataset</p>
+          <p className="text-destructive">Failed to load dataset</p>
+          <p className="text-sm text-muted-foreground mt-2">Please go back and select another dataset</p>
         </div>
       ) : (
         <>
           {/* Dataset info header */}
-          <Card className="bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700">
+          <Card className="bg-card border-border">
             <CardHeader className="pb-2">
-              <CardTitle className="text-xl font-semibold text-gray-800 dark:text-gray-100">
+              <CardTitle className="text-xl font-semibold text-foreground">
                 {dataset.name}
               </CardTitle>
-              <CardDescription className="text-gray-500 dark:text-gray-400">
+              <CardDescription className="text-muted-foreground">
                 {dataset.description || "No description available"}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-wrap gap-3 text-sm text-gray-500 dark:text-gray-400">
+              <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
                 <div>
                   <span className="font-medium">Type:</span> {dataset.file_type ? dataset.file_type.toUpperCase() : 'UNKNOWN'}
                 </div>
@@ -251,7 +251,7 @@ export default function TableView({ onNext, onPrevious, datasetId }: TableViewPr
                       {dataset.tags.map((tag: any) => (
                         <span
                           key={tag.id}
-                          className="inline-flex items-center rounded-full bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-xs font-medium text-gray-800 dark:text-gray-200"
+                          className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-foreground"
                         >
                           {tag.name}
                         </span>
@@ -316,18 +316,18 @@ export default function TableView({ onNext, onPrevious, datasetId }: TableViewPr
 
                 {isLoadingData ? (
                   <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
-                    <span className="ml-2 text-gray-500 dark:text-gray-400">Loading table data...</span>
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <span className="ml-2 text-muted-foreground">Loading table data...</span>
                   </div>
                 ) : !selectedVersion ? (
                   <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <p className="text-lg font-semibold text-gray-700 dark:text-gray-300">Select a Version</p>
-                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                    <p className="text-lg font-semibold text-foreground">Select a Version</p>
+                    <p className="mt-2 text-sm text-muted-foreground">
                       Please select a dataset version to view the data
                     </p>
                   </div>
                 ) : (
-                  <div className="rounded-md border border-gray-200 dark:border-gray-700">
+                  <div className="rounded-md border border-border">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -356,8 +356,8 @@ export default function TableView({ onNext, onPrevious, datasetId }: TableViewPr
                               className="h-24 text-center"
                             >
                               <div className="flex flex-col items-center justify-center">
-                                <p className="font-medium text-gray-700 dark:text-gray-300">No data available</p>
-                                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                <p className="font-medium text-foreground">No data available</p>
+                                <p className="mt-1 text-sm text-muted-foreground">
                                   Either no data was returned from the API or the data format is not recognized
                                 </p>
                               </div>
@@ -370,7 +370,7 @@ export default function TableView({ onNext, onPrevious, datasetId }: TableViewPr
                 )}
 
                 <div className="flex items-center justify-between">
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="text-sm text-muted-foreground">
                     Showing <span className="font-medium">{paginatedData.length}</span> of{" "}
                     <span className="font-medium">{filteredData.length}</span> rows
                   </p>
@@ -385,13 +385,13 @@ export default function TableView({ onNext, onPrevious, datasetId }: TableViewPr
 
             <TabsContent value="visualize" className="m-0">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card className="bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700">
+                <Card className="bg-card border-border">
                   <CardHeader className="pb-2">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg font-medium text-gray-800 dark:text-gray-100">
+                      <CardTitle className="text-lg font-medium text-foreground">
                         Distribution by Category
                       </CardTitle>
-                      <BarChart className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                      <BarChart className="h-5 w-5 text-muted-foreground" />
                     </div>
                   </CardHeader>
                   <CardContent className="pt-0">
@@ -401,26 +401,26 @@ export default function TableView({ onNext, onPrevious, datasetId }: TableViewPr
                         <motion.div key={category} className="flex flex-col items-center">
                           <div className="relative h-40 w-12">
                             <motion.div
-                              className="absolute bottom-0 w-full rounded-t-md bg-violet-500 dark:bg-violet-600"
+                              className="absolute bottom-0 w-full rounded-t-md bg-primary"
                               initial={{ height: 0 }}
                               animate={{ height: [40, 80, 60, 100][i] + '%' }}
                               transition={{ delay: i * 0.1, duration: 0.5 }}
                             />
                           </div>
-                          <span className="mt-2 text-xs text-gray-500 dark:text-gray-400">{category}</span>
+                          <span className="mt-2 text-xs text-muted-foreground">{category}</span>
                         </motion.div>
                       ))}
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card className="bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700">
+                <Card className="bg-card border-border">
                   <CardHeader className="pb-2">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg font-medium text-gray-800 dark:text-gray-100">
+                      <CardTitle className="text-lg font-medium text-foreground">
                         Price Distribution
                       </CardTitle>
-                      <PieChart className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                      <PieChart className="h-5 w-5 text-muted-foreground" />
                     </div>
                   </CardHeader>
                   <CardContent className="pt-0">
@@ -428,20 +428,20 @@ export default function TableView({ onNext, onPrevious, datasetId }: TableViewPr
                       {/* Mock pie chart */}
                       <div className="relative h-40 w-40">
                         <motion.div
-                          className="absolute inset-0 rounded-full border-8 border-violet-500 dark:border-violet-600"
+                          className="absolute inset-0 rounded-full border-8 border-primary"
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           transition={{ delay: 0.2 }}
                         />
                         <motion.div
-                          className="absolute inset-0 rounded-full border-t-8 border-r-8 border-yellow-500 dark:border-yellow-600"
+                          className="absolute inset-0 rounded-full border-t-8 border-r-8 border-amber-600 dark:border-amber-400"
                           style={{ transform: 'rotate(45deg)' }}
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           transition={{ delay: 0.4 }}
                         />
                         <motion.div
-                          className="absolute inset-0 rounded-full border-t-8 border-green-500 dark:border-green-600"
+                          className="absolute inset-0 rounded-full border-t-8 border-green-600 dark:border-green-400"
                           style={{ transform: 'rotate(180deg)' }}
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
@@ -450,16 +450,16 @@ export default function TableView({ onNext, onPrevious, datasetId }: TableViewPr
                       </div>
                       <div className="ml-4 space-y-2">
                         <div className="flex items-center">
-                          <div className="h-3 w-3 rounded-full bg-violet-500 dark:bg-violet-600"></div>
-                          <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">Low (40%)</span>
+                          <div className="h-3 w-3 rounded-full bg-primary"></div>
+                          <span className="ml-2 text-xs text-muted-foreground">Low (40%)</span>
                         </div>
                         <div className="flex items-center">
-                          <div className="h-3 w-3 rounded-full bg-yellow-500 dark:bg-yellow-600"></div>
-                          <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">Medium (35%)</span>
+                          <div className="h-3 w-3 rounded-full bg-amber-600 dark:bg-amber-400"></div>
+                          <span className="ml-2 text-xs text-muted-foreground">Medium (35%)</span>
                         </div>
                         <div className="flex items-center">
-                          <div className="h-3 w-3 rounded-full bg-green-500 dark:bg-green-600"></div>
-                          <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">High (25%)</span>
+                          <div className="h-3 w-3 rounded-full bg-green-600 dark:bg-green-400"></div>
+                          <span className="ml-2 text-xs text-muted-foreground">High (25%)</span>
                         </div>
                       </div>
                     </div>
@@ -514,7 +514,7 @@ export default function TableView({ onNext, onPrevious, datasetId }: TableViewPr
                   onNext();
                 }
               }} 
-              className="bg-violet-600 hover:bg-violet-700 text-white"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
               disabled={!selectedVersion}
             >
               Proceed to Analysis

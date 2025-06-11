@@ -87,8 +87,8 @@ export default function Output({ onPrevious, source, sourceId }: OutputProps) {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">{getTitle()}</h2>
-        <p className="text-gray-500 dark:text-gray-400 mt-1">
+        <h2 className="text-2xl font-semibold text-foreground">{getTitle()}</h2>
+        <p className="text-muted-foreground mt-1">
           {source === "dataset"
             ? "View analysis results and visualizations from your dataset"
             : "Viewing results from your previously run analysis"}
@@ -109,8 +109,8 @@ export default function Output({ onPrevious, source, sourceId }: OutputProps) {
               onClick={() => setActiveChart("bar")}
               className={`inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium ${
                 activeChart === "bar"
-                  ? "bg-violet-100 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300"
-                  : "border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  ? "bg-primary/20 text-primary"
+                  : "border border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground"
               }`}
             >
               <BarChart className="mr-2 h-4 w-4" />
@@ -123,8 +123,8 @@ export default function Output({ onPrevious, source, sourceId }: OutputProps) {
               onClick={() => setActiveChart("pie")}
               className={`inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium ${
                 activeChart === "pie"
-                  ? "bg-violet-100 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300"
-                  : "border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  ? "bg-primary/20 text-primary"
+                  : "border border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground"
               }`}
             >
               <PieChart className="mr-2 h-4 w-4" />
@@ -137,8 +137,8 @@ export default function Output({ onPrevious, source, sourceId }: OutputProps) {
               onClick={() => setActiveChart("line")}
               className={`inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium ${
                 activeChart === "line"
-                  ? "bg-violet-100 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300"
-                  : "border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  ? "bg-primary/20 text-primary"
+                  : "border border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground"
               }`}
             >
               <LineChart className="mr-2 h-4 w-4" />
@@ -146,78 +146,78 @@ export default function Output({ onPrevious, source, sourceId }: OutputProps) {
             </motion.button>
           </div>
 
-          <Card className="border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm mt-4">
+          <Card className="border-border bg-card shadow-sm mt-4">
             <CardContent className="p-6">
               <AnimatedChart type={activeChart} />
             </CardContent>
           </Card>
 
           <div className="grid gap-4 md:grid-cols-2 mt-6">
-            <Card className="border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <Card className="border-border bg-card">
               <CardHeader className="pb-2">
-                <CardTitle className="text-lg font-medium text-gray-800 dark:text-gray-100">Summary Statistics</CardTitle>
+                <CardTitle className="text-lg font-medium text-foreground">Summary Statistics</CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
                 <div className="space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-500 dark:text-gray-400">Total Records</span>
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">1,245</span>
+                    <span className="text-sm text-muted-foreground">Total Records</span>
+                    <span className="text-sm font-medium text-foreground">1,245</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-500 dark:text-gray-400">Average Value</span>
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">$187.34</span>
+                    <span className="text-sm text-muted-foreground">Average Value</span>
+                    <span className="text-sm font-medium text-foreground">$187.34</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-500 dark:text-gray-400">Highest Value</span>
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">$499.99</span>
+                    <span className="text-sm text-muted-foreground">Highest Value</span>
+                    <span className="text-sm font-medium text-foreground">$499.99</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-500 dark:text-gray-400">Lowest Value</span>
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">$29.99</span>
+                    <span className="text-sm text-muted-foreground">Lowest Value</span>
+                    <span className="text-sm font-medium text-foreground">$29.99</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-500 dark:text-gray-400">Standard Deviation</span>
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">$78.21</span>
+                    <span className="text-sm text-muted-foreground">Standard Deviation</span>
+                    <span className="text-sm font-medium text-foreground">$78.21</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-500 dark:text-gray-400">Median Value</span>
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">$142.50</span>
+                    <span className="text-sm text-muted-foreground">Median Value</span>
+                    <span className="text-sm font-medium text-foreground">$142.50</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <Card className="border-border bg-card">
               <CardHeader className="pb-2">
-                <CardTitle className="text-lg font-medium text-gray-800 dark:text-gray-100">Key Insights</CardTitle>
+                <CardTitle className="text-lg font-medium text-foreground">Key Insights</CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
                 <ul className="space-y-2">
                   <li className="flex items-start">
-                    <span className="mr-2 flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 text-xs">
+                    <span className="mr-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary/20 text-primary text-xs">
                       1
                     </span>
-                    <span className="text-sm text-gray-600 dark:text-gray-300">
+                    <span className="text-sm text-muted-foreground">
                       {source === "dataset" && dataset?.file_type === "csv" 
                         ? "The dataset shows strong seasonality in the time series pattern"
                         : "Electronics category has the highest average price"}
                     </span>
                   </li>
                   <li className="flex items-start">
-                    <span className="mr-2 flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 text-xs">
+                    <span className="mr-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary/20 text-primary text-xs">
                       2
                     </span>
-                    <span className="text-sm text-gray-600 dark:text-gray-300">
+                    <span className="text-sm text-muted-foreground">
                       {source === "dataset" && dataset?.name?.includes("titanic")
                         ? "Survival rates were significantly higher for women and children" 
                         : "20% of products are low in stock"}
                     </span>
                   </li>
                   <li className="flex items-start">
-                    <span className="mr-2 flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 text-xs">
+                    <span className="mr-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary/20 text-primary text-xs">
                       3
                     </span>
-                    <span className="text-sm text-gray-600 dark:text-gray-300">
+                    <span className="text-sm text-muted-foreground">
                       {source === "dataset" && dataset?.name?.includes("netflix")
                         ? "Content production increased significantly after 2015"
                         : "Clothing has the highest inventory count"}
@@ -230,16 +230,16 @@ export default function Output({ onPrevious, source, sourceId }: OutputProps) {
         </TabsContent>
 
         <TabsContent value="profile" className="mt-6">
-          <Card className="border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
+          <Card className="border-border bg-card shadow-sm">
             <CardContent className="p-6 min-h-[600px]">
               {isLoadingProfile ? (
                 <div className="flex items-center justify-center h-full py-20">
                   <div className="flex flex-col items-center">
-                    <Loader2 className="h-12 w-12 animate-spin text-violet-500 mb-4" />
-                    <p className="text-lg font-medium text-gray-700 dark:text-gray-300">
+                    <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+                    <p className="text-lg font-medium text-foreground">
                       Generating profile report...
                     </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                    <p className="text-sm text-muted-foreground mt-2">
                       This may take a moment depending on the size of your dataset
                     </p>
                   </div>
@@ -251,10 +251,10 @@ export default function Output({ onPrevious, source, sourceId }: OutputProps) {
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center h-full py-20">
-                  <p className="text-lg font-medium text-gray-700 dark:text-gray-300">
+                  <p className="text-lg font-medium text-foreground">
                     No profile data available
                   </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                  <p className="text-sm text-muted-foreground mt-2">
                     Try regenerating the profile or select another dataset
                   </p>
                 </div>
@@ -268,7 +268,7 @@ export default function Output({ onPrevious, source, sourceId }: OutputProps) {
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
-          className="inline-flex items-center rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+          className="inline-flex items-center rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground"
         >
           <Download className="mr-2 h-4 w-4" />
           Download Report
@@ -277,7 +277,7 @@ export default function Output({ onPrevious, source, sourceId }: OutputProps) {
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
-          className="inline-flex items-center rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+          className="inline-flex items-center rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground"
         >
           <Share2 className="mr-2 h-4 w-4" />
           Share Results
@@ -330,7 +330,7 @@ function AnimatedChart({ type }: { type: string }) {
 
     return (
       <div className="h-64">
-        <h3 className="mb-4 text-lg font-medium text-gray-800 dark:text-gray-100">Sales by Category</h3>
+        <h3 className="mb-4 text-lg font-medium text-foreground">Sales by Category</h3>
         <motion.div
           className="flex h-48 items-end justify-around"
           variants={barChartVariants}
@@ -341,12 +341,12 @@ function AnimatedChart({ type }: { type: string }) {
             <div key={index} className="flex flex-col items-center">
               <div className="relative h-40 w-12">
                 <motion.div
-                  className="absolute bottom-0 w-full rounded-t-md bg-violet-500 dark:bg-violet-400"
+                  className="absolute bottom-0 w-full rounded-t-md bg-primary"
                   style={{ height: `${value}%` }}
                   variants={barVariants}
                 />
               </div>
-              <span className="mt-2 text-xs text-gray-500 dark:text-gray-400">{categories[index]}</span>
+              <span className="mt-2 text-xs text-muted-foreground">{categories[index]}</span>
             </div>
           ))}
         </motion.div>
@@ -357,7 +357,7 @@ function AnimatedChart({ type }: { type: string }) {
   if (type === "pie") {
     return (
       <div className="flex h-64 items-center justify-center">
-        <h3 className="absolute text-lg font-medium text-gray-800 dark:text-gray-100">Inventory Distribution</h3>
+        <h3 className="absolute text-lg font-medium text-foreground">Inventory Distribution</h3>
         <motion.svg
           width="200"
           height="200"
@@ -409,20 +409,20 @@ function AnimatedChart({ type }: { type: string }) {
         </motion.svg>
         <div className="ml-8 space-y-2">
           <div className="flex items-center">
-            <div className="h-3 w-3 rounded-full bg-violet-500 dark:bg-violet-400"></div>
-            <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">Electronics (40%)</span>
+            <div className="h-3 w-3 rounded-full bg-primary"></div>
+            <span className="ml-2 text-xs text-muted-foreground">Electronics (40%)</span>
           </div>
           <div className="flex items-center">
             <div className="h-3 w-3 rounded-full bg-pink-500 dark:bg-pink-400"></div>
-            <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">Clothing (25%)</span>
+            <span className="ml-2 text-xs text-muted-foreground">Clothing (25%)</span>
           </div>
           <div className="flex items-center">
             <div className="h-3 w-3 rounded-full bg-teal-500 dark:bg-teal-400"></div>
-            <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">Home (20%)</span>
+            <span className="ml-2 text-xs text-muted-foreground">Home (20%)</span>
           </div>
           <div className="flex items-center">
             <div className="h-3 w-3 rounded-full bg-amber-500 dark:bg-amber-400"></div>
-            <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">Accessories (15%)</span>
+            <span className="ml-2 text-xs text-muted-foreground">Accessories (15%)</span>
           </div>
         </div>
       </div>
@@ -432,7 +432,7 @@ function AnimatedChart({ type }: { type: string }) {
   if (type === "line") {
     return (
       <div className="h-64">
-        <h3 className="mb-4 text-lg font-medium text-gray-800 dark:text-gray-100">Monthly Sales Trend</h3>
+        <h3 className="mb-4 text-lg font-medium text-foreground">Monthly Sales Trend</h3>
         <div className="relative h-48">
           <svg width="100%" height="100%" viewBox="0 0 500 200">
             {/* Grid lines */}

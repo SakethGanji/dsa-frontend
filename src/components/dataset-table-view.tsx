@@ -84,7 +84,7 @@ export function DatasetTableView({ datasetId, versionId }: DataTableProps) {
           <Skeleton className="h-10 w-48" />
         </div>
       ) : sheetsQuery.isError ? (
-        <div className="text-red-500">Error loading sheets: {sheetsQuery.error.message}</div>
+        <div className="text-destructive">Error loading sheets: {sheetsQuery.error.message}</div>
       ) : sheetsQuery.data && sheetsQuery.data.length > 0 ? (
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
@@ -129,7 +129,7 @@ export function DatasetTableView({ datasetId, versionId }: DataTableProps) {
           </div>
         </div>
       ) : (
-        <div className="text-gray-500">No sheets available for this dataset version</div>
+        <div className="text-muted-foreground">No sheets available for this dataset version</div>
       )}
 
       {/* Data table */}
@@ -163,7 +163,7 @@ export function DatasetTableView({ datasetId, versionId }: DataTableProps) {
               </div>
             </div>
           ) : dataQuery.isError ? (
-            <div className="p-4 text-red-500">Error loading data: {dataQuery.error.message}</div>
+            <div className="p-4 text-destructive">Error loading data: {dataQuery.error.message}</div>
           ) : dataQuery.data ? (
             <>
               <div className="max-h-[600px] overflow-auto">

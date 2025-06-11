@@ -33,18 +33,18 @@ function formatFileSize(bytes?: number | null): string {
 }
 
 function getFileIcon(fileType?: string | null) {
-  if (!fileType) return <FileText className="h-4 w-4 text-gray-500" />;
+  if (!fileType) return <FileText className="h-4 w-4 text-muted-foreground" />;
   
   switch(fileType.toLowerCase()) {
     case 'csv':
-      return <BarChart2 className="h-4 w-4 text-green-500" />;
+      return <BarChart2 className="h-4 w-4 text-green-600 dark:text-green-400" />;
     case 'xlsx':
     case 'xls':
-      return <BarChart2 className="h-4 w-4 text-blue-500" />;
+      return <BarChart2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />;
     case 'json':
-      return <FileText className="h-4 w-4 text-yellow-500" />;
+      return <FileText className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />;
     default:
-      return <FileText className="h-4 w-4 text-gray-500" />;
+      return <FileText className="h-4 w-4 text-muted-foreground" />;
   }
 }
 
@@ -173,7 +173,7 @@ export function DatasetSearchBar({ onSelectDataset }: { onSelectDataset?: (datas
     <div className="w-full mx-auto">
       <div className="relative flex flex-col justify-start items-center min-h-[200px]">
         <div className="w-full sticky top-0 bg-background z-10 pt-4 pb-1">
-          <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 block" htmlFor="search">
+          <label className="text-xs font-medium text-muted-foreground mb-1 block" htmlFor="search">
             Search Datasets
           </label>
           <div className="relative">
@@ -203,7 +203,7 @@ export function DatasetSearchBar({ onSelectDataset }: { onSelectDataset?: (datas
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0.5, opacity: 0 }}
                   >
-                    <Search className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                    <Search className="w-4 h-4 text-muted-foreground" />
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -216,7 +216,7 @@ export function DatasetSearchBar({ onSelectDataset }: { onSelectDataset?: (datas
             {isFocused && !selectedDataset && datasetActions.length > 0 && (
               <motion.div
                 key="dataset-list-container" // Added key
-                className="w-full border rounded-md shadow-lg overflow-hidden dark:border-gray-800 bg-white dark:bg-black mt-1"
+                className="w-full border rounded-md shadow-lg overflow-hidden bg-popover mt-1"
                 variants={container}
                 initial="hidden"
                 animate="show"
@@ -226,7 +226,7 @@ export function DatasetSearchBar({ onSelectDataset }: { onSelectDataset?: (datas
                   {datasetActions.map((action) => (
                     <motion.li
                       key={action.id}
-                      className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-zinc-900 cursor-pointer border-b border-gray-100 dark:border-gray-800 last:border-none"
+                      className="px-4 py-3 hover:bg-accent cursor-pointer border-b border-border last:border-none"
                       variants={item}
                       layout
                       onClick={() => {
@@ -235,20 +235,20 @@ export function DatasetSearchBar({ onSelectDataset }: { onSelectDataset?: (datas
                       }}
                     >
                       <div className="flex items-start">
-                        <div className="p-1.5 bg-gray-100 dark:bg-zinc-900 rounded-md mr-3 mt-0.5">
+                        <div className="p-1.5 bg-muted rounded-md mr-3 mt-0.5">
                           {action.icon}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
-                            <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{action.name}</h4>
-                            <span className="ml-2 text-xs font-medium text-gray-500 whitespace-nowrap">
+                            <h4 className="text-sm font-medium text-foreground truncate">{action.name}</h4>
+                            <span className="ml-2 text-xs font-medium text-muted-foreground whitespace-nowrap">
                               {action.fileType?.toUpperCase() || "UNKNOWN"}
                             </span>
                           </div>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
+                          <p className="text-xs text-muted-foreground mt-0.5 truncate">
                             {action.description || "No description"}
                           </p>
-                          <div className="flex items-center mt-2 text-xs text-gray-500 space-x-3">
+                          <div className="flex items-center mt-2 text-xs text-muted-foreground space-x-3">
                             <div className="flex items-center">
                               <Calendar className="h-3 w-3 mr-1" />
                               <span>{formatDistanceToNow(new Date(action.createdAt), { addSuffix: true })}</span>
@@ -265,14 +265,14 @@ export function DatasetSearchBar({ onSelectDataset }: { onSelectDataset?: (datas
                               {action.tags.slice(0, 3).map(tag => (
                                 <span 
                                   key={tag.name} 
-                                  className="inline-flex items-center text-xs bg-gray-100 dark:bg-zinc-900 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full"
+                                  className="inline-flex items-center text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full"
                                 >
                                   <Tag className="h-3 w-3 mr-1" />
                                   {tag.name}
                                 </span>
                               ))}
                               {action.tags.length > 3 && (
-                                <span className="inline-flex items-center text-xs bg-gray-100 dark:bg-zinc-900 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">
+                                <span className="inline-flex items-center text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
                                   +{action.tags.length - 3} more
                                 </span>
                               )}
@@ -283,10 +283,10 @@ export function DatasetSearchBar({ onSelectDataset }: { onSelectDataset?: (datas
                     </motion.li>
                   ))}
                 </motion.ul>
-                <div className="mt-2 px-4 py-2 border-t border-gray-100 dark:border-gray-800">
-                  <div className="flex items-center justify-between text-xs text-gray-500">
-                    <span>Press <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-zinc-900 rounded border border-gray-200 dark:border-gray-800 text-xs">↵</kbd> to select</span>
-                    <span><kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-zinc-900 rounded border border-gray-200 dark:border-gray-800 text-xs">ESC</kbd> to cancel</span>
+                <div className="mt-2 px-4 py-2 border-t border-border">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Press <kbd className="px-1.5 py-0.5 bg-muted rounded border border-border text-xs">↵</kbd> to select</span>
+                    <span><kbd className="px-1.5 py-0.5 bg-muted rounded border border-border text-xs">ESC</kbd> to cancel</span>
                   </div>
                 </div>
               </motion.div>
@@ -295,13 +295,13 @@ export function DatasetSearchBar({ onSelectDataset }: { onSelectDataset?: (datas
             {isFocused && !loading && datasetActions.length === 0 && (
               <motion.div
                 key="no-datasets-message-container" // Added key
-                className="w-full border rounded-md shadow-lg overflow-hidden dark:border-gray-800 bg-white dark:bg-black mt-1 p-6 text-center"
+                className="w-full border rounded-md shadow-lg overflow-hidden bg-popover mt-1 p-6 text-center"
                 variants={container}
                 initial="hidden"
                 animate="show"
                 exit="exit"
               >
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-muted-foreground">
                   {query ? "No datasets found matching your search" : "No datasets available"}
                 </div>
               </motion.div>

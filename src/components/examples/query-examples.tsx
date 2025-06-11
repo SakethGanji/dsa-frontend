@@ -74,7 +74,7 @@ export function LoginExample() {
           </Button>
           
           {loginMutation.isError && (
-            <p className="text-red-500 text-sm mt-2">
+            <p className="text-destructive text-sm mt-2">
               {loginMutation.error.message}
             </p>
           )}
@@ -124,7 +124,7 @@ export function DatasetListExample() {
         {isLoading ? (
           <p>Loading datasets...</p>
         ) : isError ? (
-          <p className="text-red-500">Error: {error.message}</p>
+          <p className="text-destructive">Error: {error.message}</p>
         ) : data?.items.length === 0 ? (
           <p>No datasets found.</p>
         ) : (
@@ -132,10 +132,10 @@ export function DatasetListExample() {
             {data?.items.map((dataset) => (
               <div key={dataset.id} className="p-4 border rounded-md">
                 <h3 className="font-medium">{dataset.name}</h3>
-                <p className="text-sm text-gray-500">{dataset.description}</p>
+                <p className="text-sm text-muted-foreground">{dataset.description}</p>
                 <div className="flex gap-2 mt-2">
                   {dataset.tags.map((tag) => (
-                    <span key={tag} className="px-2 py-1 text-xs bg-gray-100 rounded-full">
+                    <span key={tag} className="px-2 py-1 text-xs bg-muted rounded-full">
                       {tag}
                     </span>
                   ))}
@@ -147,7 +147,7 @@ export function DatasetListExample() {
       </CardContent>
       
       <CardFooter className="flex justify-between">
-        <div className="text-sm text-gray-500">
+        <div className="text-sm text-muted-foreground">
           {data && `Showing ${pagination.currentPage} of ${pagination.total} pages`}
         </div>
         <div className="flex gap-2">
@@ -255,7 +255,7 @@ export function DatasetExplorationExample() {
         <Separator />
         
         <div>
-          <p className="text-sm text-gray-500 mb-2">
+          <p className="text-sm text-muted-foreground mb-2">
             This example will run the following operations:
           </p>
           <ul className="list-disc list-inside text-sm space-y-1">

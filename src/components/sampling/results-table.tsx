@@ -106,9 +106,9 @@ export function ResultsTable({
 
   if (!data || data.length === 0) {
     return (
-      <div className="border rounded-lg p-12 text-center bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-blue-950">
-        <p className="text-sm font-medium text-slate-600 dark:text-slate-400">No sampling results yet</p>
-        <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">Execute a sampling operation to see results</p>
+      <div className="border rounded-lg p-12 text-center bg-gradient-to-br from-muted/50 to-primary/10 dark:from-muted dark:to-primary/20">
+        <p className="text-sm font-medium text-muted-foreground">No sampling results yet</p>
+        <p className="text-xs text-muted-foreground mt-1">Execute a sampling operation to see results</p>
       </div>
     )
   }
@@ -121,12 +121,12 @@ export function ResultsTable({
       className="space-y-4"
     >
       {/* Results Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border border-green-200 dark:border-green-800 rounded-lg">
+      <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-green-600/10 to-emerald-600/10 dark:from-green-400/10 dark:to-emerald-400/10 border border-green-600/20 dark:border-green-400/20 rounded-lg">
         <div className="flex items-center gap-3">
           <div>
-            <h3 className="font-semibold text-sm text-green-900 dark:text-green-100">{outputName}</h3>
+            <h3 className="font-semibold text-sm text-green-600 dark:text-green-400">{outputName}</h3>
             <div className="flex items-center gap-2 mt-1">
-              <Badge variant="outline" className="text-xs bg-green-100 text-green-700 border-green-300 dark:bg-green-900 dark:text-green-300 dark:border-green-700">
+              <Badge variant="outline" className="text-xs bg-green-600/10 text-green-600 border-green-600/20 dark:bg-green-400/10 dark:text-green-400 dark:border-green-400/20">
                 {method} sampling
               </Badge>
               <Badge variant="secondary" className="text-xs">
@@ -170,27 +170,27 @@ export function ResultsTable({
       </div>
 
       {/* Simple Table */}
-      <div className="border rounded-lg overflow-hidden bg-white dark:bg-slate-900 shadow-sm relative">
+      <div className="border rounded-lg overflow-hidden bg-card shadow-sm relative">
         {/* Loading overlay */}
         {isLoading && (
-          <div className="absolute inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm z-10 flex items-center justify-center">
+          <div className="absolute inset-0 bg-background/80 dark:bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center">
             <div className="flex items-center gap-2">
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
-              <span className="text-sm text-gray-600 dark:text-gray-400">Loading...</span>
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-primary" />
+              <span className="text-sm text-muted-foreground">Loading...</span>
             </div>
           </div>
         )}
         
         <ScrollArea className="w-full">
           <Table>
-            <TableHeader className="bg-slate-50 dark:bg-slate-800">
+            <TableHeader className="bg-muted/50">
               <TableRow>
                 {columns.map((column) => {
                   const Icon = getColumnIcon(columnTypes[column])
                   return (
                     <TableHead key={column} className="font-medium">
                       <div className="flex items-center gap-2">
-                        <Icon className="w-4 h-4 text-gray-500" />
+                        <Icon className="w-4 h-4 text-muted-foreground" />
                         <span>{column}</span>
                       </div>
                     </TableHead>
@@ -217,7 +217,7 @@ export function ResultsTable({
         {totalItems && totalItems > pageSize && onPageChange && (
           <div className="flex items-center justify-between px-4 py-3 border-t">
             <div className="flex items-center gap-2">
-              <p className="text-sm text-gray-700 dark:text-gray-300">
+              <p className="text-sm text-foreground">
                 Showing{' '}
                 <span className="font-medium">{(currentPage - 1) * pageSize + 1}</span>
                 {' '}-{' '}
@@ -232,7 +232,7 @@ export function ResultsTable({
                 <select
                   value={pageSize}
                   onChange={(e) => onPageSizeChange(Number(e.target.value))}
-                  className="ml-4 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="ml-4 rounded border border-border bg-background px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value={10}>10 per page</option>
                   <option value={25}>25 per page</option>

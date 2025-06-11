@@ -60,37 +60,37 @@ const methodConfig: Record<Exclude<SamplingMethod, 'multi-round'>, {
 }> = {
   random: { 
     icon: Sparkles, 
-    color: 'text-blue-600 dark:text-blue-400',
-    bgColor: 'bg-blue-50 dark:bg-blue-950/30',
-    borderColor: 'border-blue-200 dark:border-blue-800',
+    color: 'text-primary',
+    bgColor: 'bg-primary/10 dark:bg-primary/20',
+    borderColor: 'border-primary/20 dark:border-primary/30',
     description: 'Randomly select rows from the dataset'
   },
   stratified: { 
     icon: Layers, 
-    color: 'text-purple-600 dark:text-purple-400',
-    bgColor: 'bg-purple-50 dark:bg-purple-950/30',
-    borderColor: 'border-purple-200 dark:border-purple-800',
+    color: 'text-primary',
+    bgColor: 'bg-primary/10 dark:bg-primary/20',
+    borderColor: 'border-primary/20 dark:border-primary/30',
     description: 'Sample proportionally from groups'
   },
   systematic: { 
     icon: Settings2, 
     color: 'text-green-600 dark:text-green-400',
-    bgColor: 'bg-green-50 dark:bg-green-950/30',
-    borderColor: 'border-green-200 dark:border-green-800',
+    bgColor: 'bg-green-600/10 dark:bg-green-400/20',
+    borderColor: 'border-green-600/20 dark:border-green-400/30',
     description: 'Select every nth row systematically'
   },
   cluster: { 
     icon: Circle, 
     color: 'text-orange-600 dark:text-orange-400',
-    bgColor: 'bg-orange-50 dark:bg-orange-950/30',
-    borderColor: 'border-orange-200 dark:border-orange-800',
+    bgColor: 'bg-orange-600/10 dark:bg-orange-400/20',
+    borderColor: 'border-orange-600/20 dark:border-orange-400/30',
     description: 'Sample entire clusters of data'
   },
   custom: { 
     icon: FlaskConical, 
     color: 'text-cyan-600 dark:text-cyan-400',
-    bgColor: 'bg-cyan-50 dark:bg-cyan-950/30',
-    borderColor: 'border-cyan-200 dark:border-cyan-800',
+    bgColor: 'bg-cyan-600/10 dark:bg-cyan-400/20',
+    borderColor: 'border-cyan-600/20 dark:border-cyan-400/30',
     description: 'Custom SQL query for complex sampling'
   }
 }

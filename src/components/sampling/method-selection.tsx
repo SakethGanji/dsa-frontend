@@ -17,7 +17,7 @@ const samplingMethods = [
     name: "Random Sampling",
     description: "Select a random subset of data with equal probability",
     icon: Shuffle,
-    color: "from-blue-500 to-indigo-600",
+    color: "from-primary to-primary/80",
     params: ["Sample Size", "Seed (optional)"],
   },
   {
@@ -25,7 +25,7 @@ const samplingMethods = [
     name: "Stratified Sampling",
     description: "Divide data into groups and sample from each proportionally",
     icon: Layers,
-    color: "from-purple-500 to-pink-600",
+    color: "from-primary to-primary/70",
     params: ["Strata Columns", "Sample Size", "Min per Stratum"],
   },
   {
@@ -33,7 +33,7 @@ const samplingMethods = [
     name: "Systematic Sampling",
     description: "Select every nth element from the dataset",
     icon: Grid3x3,
-    color: "from-green-500 to-emerald-600",
+    color: "from-green-600 to-emerald-600 dark:from-green-400 dark:to-emerald-400",
     params: ["Interval", "Starting Point"],
   },
   {
@@ -41,7 +41,7 @@ const samplingMethods = [
     name: "Cluster Sampling",
     description: "Randomly select groups and sample within them",
     icon: Network,
-    color: "from-orange-500 to-red-600",
+    color: "from-orange-600 to-red-600 dark:from-orange-400 dark:to-red-400",
     params: ["Cluster Column", "Number of Clusters", "Samples per Cluster"],
   },
   {
@@ -49,7 +49,7 @@ const samplingMethods = [
     name: "Custom Query",
     description: "Write a custom SQL query for complex sampling",
     icon: Code,
-    color: "from-cyan-500 to-teal-600",
+    color: "from-cyan-600 to-teal-600 dark:from-cyan-400 dark:to-teal-400",
     params: ["SQL Query"],
   },
 ]
@@ -83,10 +83,10 @@ export function MethodSelection({
             <Card
               className={`h-full transition-all duration-300 relative overflow-hidden group ${
                 isSelected
-                  ? "border-blue-400 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 shadow-lg shadow-blue-100/50 dark:shadow-blue-900/30"
+                  ? "border-primary bg-gradient-to-br from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10 shadow-lg shadow-primary/20 dark:shadow-primary/10"
                   : disabled
-                    ? "opacity-60 cursor-default bg-gray-50/50 dark:bg-gray-900/50"
-                    : "cursor-pointer hover:shadow-xl hover:border-blue-400 hover:bg-gradient-to-br hover:from-blue-50/50 hover:to-indigo-50/50 dark:hover:from-blue-950/20 dark:hover:to-indigo-950/20 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
+                    ? "opacity-60 cursor-default bg-muted/50 dark:bg-muted/30"
+                    : "cursor-pointer hover:shadow-xl hover:border-primary hover:bg-gradient-to-br hover:from-primary/5 hover:to-primary/10 dark:hover:from-primary/10 dark:hover:to-primary/20 bg-card border-border"
               }`}
               onClick={!disabled ? () => onSelectMethod(method.id) : undefined}
             >
@@ -98,7 +98,7 @@ export function MethodSelection({
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">{method.name}</h3>
+                      <h3 className="font-bold text-foreground text-sm">{method.name}</h3>
                       {isSelected && (
                         <motion.div
                           initial={{ scale: 0, rotate: -180 }}
@@ -110,7 +110,7 @@ export function MethodSelection({
                         </motion.div>
                       )}
                     </div>
-                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed mb-3">
+                    <p className="text-xs text-muted-foreground leading-relaxed mb-3">
                       {method.description}
                     </p>
                     <div className="flex flex-wrap gap-1">

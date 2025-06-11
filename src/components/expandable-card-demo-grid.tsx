@@ -26,7 +26,7 @@ export default function ExpandableCardDemo() {
         return () => window.removeEventListener("keydown", onKeyDown)
     }, [active])
 
-    // @ts-ignore
+    // @ts-expect-error - useOutsideClick expects a different callback signature
     useOutsideClick(ref, () => setActive(null))
 
     return (
@@ -59,7 +59,7 @@ export default function ExpandableCardDemo() {
                                     duration: 0.05,
                                 },
                             }}
-                            className="flex absolute top-2 right-2 lg:hidden items-center justify-center bg-white rounded-full h-6 w-6"
+                            className="flex absolute top-2 right-2 lg:hidden items-center justify-center bg-background rounded-full h-6 w-6"
                             onClick={() => setActive(null)}
                         >
                             <CloseIcon />
@@ -67,7 +67,7 @@ export default function ExpandableCardDemo() {
                         <motion.div
                             layoutId={`card-${active.title}-${id}`}
                             ref={ref}
-                            className="w-full max-w-[500px]  h-full md:h-fit md:max-h-[90%]  flex flex-col bg-white dark:bg-neutral-900 sm:rounded-3xl overflow-hidden"
+                            className="w-full max-w-[500px]  h-full md:h-fit md:max-h-[90%]  flex flex-col bg-card sm:rounded-3xl overflow-hidden"
                         >
                             <motion.div layoutId={`image-${active.title}-${id}`}>
                                 <img
@@ -84,13 +84,13 @@ export default function ExpandableCardDemo() {
                                     <div className="">
                                         <motion.h3
                                             layoutId={`title-${active.title}-${id}`}
-                                            className="font-medium text-neutral-700 dark:text-neutral-200 text-base"
+                                            className="font-medium text-foreground text-base"
                                         >
                                             {active.title}
                                         </motion.h3>
                                         <motion.p
                                             layoutId={`description-${active.description}-${id}`}
-                                            className="text-neutral-600 dark:text-neutral-400 text-base"
+                                            className="text-muted-foreground text-base"
                                         >
                                             {active.description}
                                         </motion.p>
@@ -103,7 +103,7 @@ export default function ExpandableCardDemo() {
                                         exit={{ opacity: 0 }}
                                         href={active.ctaLink}
                                         target="_blank"
-                                        className="px-4 py-3 text-sm rounded-full font-bold bg-green-500 text-white"
+                                        className="px-4 py-3 text-sm rounded-full font-bold bg-green-600 dark:bg-green-400 text-white dark:text-black"
                                         rel="noreferrer"
                                     >
                                         {active.ctaText}
@@ -115,7 +115,7 @@ export default function ExpandableCardDemo() {
                                         initial={{ opacity: 0 }}
                                         animate={{ opacity: 1 }}
                                         exit={{ opacity: 0 }}
-                                        className="text-neutral-600 text-xs md:text-sm lg:text-base h-40 md:h-fit pb-10 flex flex-col items-start gap-4 overflow-auto dark:text-neutral-400 [mask:linear-gradient(to_bottom,white,white,transparent)] [scrollbar-width:none] [-ms-overflow-style:none] [-webkit-overflow-scrolling:touch]"
+                                        className="text-muted-foreground text-xs md:text-sm lg:text-base h-40 md:h-fit pb-10 flex flex-col items-start gap-4 overflow-auto [mask:linear-gradient(to_bottom,white,white,transparent)] [scrollbar-width:none] [-ms-overflow-style:none] [-webkit-overflow-scrolling:touch]"
                                     >
                                         {typeof active.content === "function" ? active.content() : active.content}
                                     </motion.div>
@@ -131,7 +131,7 @@ export default function ExpandableCardDemo() {
                         layoutId={`card-${card.title}-${id}`}
                         key={card.title}
                         onClick={() => setActive(card)}
-                        className="p-4 flex flex-col  hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl cursor-pointer"
+                        className="p-4 flex flex-col  hover:bg-muted rounded-xl cursor-pointer"
                     >
                         <div className="flex gap-4 flex-col  w-full">
                             <motion.div layoutId={`image-${card.title}-${id}`}>
@@ -146,13 +146,13 @@ export default function ExpandableCardDemo() {
                             <div className="flex justify-center items-center flex-col">
                                 <motion.h3
                                     layoutId={`title-${card.title}-${id}`}
-                                    className="font-medium text-neutral-800 dark:text-neutral-200 text-center md:text-left text-base"
+                                    className="font-medium text-foreground text-center md:text-left text-base"
                                 >
                                     {card.title}
                                 </motion.h3>
                                 <motion.p
                                     layoutId={`description-${card.description}-${id}`}
-                                    className="text-neutral-600 dark:text-neutral-400 text-center md:text-left text-base"
+                                    className="text-muted-foreground text-center md:text-left text-base"
                                 >
                                     {card.description}
                                 </motion.p>
