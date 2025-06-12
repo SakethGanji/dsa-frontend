@@ -15,15 +15,15 @@ import {
   ChevronRight,
   Check,
   Play,
-  Clock,
   History,
   Eye,
   Plus,
 } from "lucide-react"
-import { DatasetSearchBar } from "@/components/dataset-search"
 import { useDatasetVersions, useExploreDataset } from "@/hooks"
 import { createProfileRequest } from "@/hooks/use-exploration-query"
+import { StepNavigation, DatasetSelector, VersionGrid, LoadingOverlay } from "@/components/shared"
 import type { Dataset, DatasetVersion } from "@/lib/api/types"
+import { formatByteSize } from "@/lib/utils"
 import { format } from "date-fns"
 import { useQuery } from "@tanstack/react-query"
 import {
@@ -34,7 +34,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import React from "react"
 
 const analysisOptions = [
   {
@@ -73,7 +72,6 @@ export function ExplorationPage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [showPreviousAnalyses, setShowPreviousAnalyses] = useState(false)
   const [viewingPrevious, setViewingPrevious] = useState(false)
-  const [compactView, setCompactView] = useState(false)
 
   // Query hooks
   const { data: versions, isLoading: versionsLoading } = useDatasetVersions(
@@ -175,13 +173,6 @@ export function ExplorationPage() {
     return stepId <= currentStep
   }
 
-  const formatByteSize = (bytes?: number | null) => {
-    if (!bytes) return "Unknown"
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
-    if (bytes === 0) return '0 Byte'
-    const i = Math.floor(Math.log(bytes) / Math.log(1024))
-    return Math.round((bytes / Math.pow(1024, i)) * 100) / 100 + ' ' + sizes[i]
-  }
 
   // Mock previous analyses for demo
   const mockPreviousAnalyses = selectedVersion ? [{
@@ -203,72 +194,18 @@ export function ExplorationPage() {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] -mx-4 lg:-mx-6 -mt-0 lg:-mt-0">
-      <div className="w-full h-full flex flex-col">
-          {/* Compact Header Bar */}
-          <div className="bg-gradient-to-r from-slate-50 to-blue-50 dark:from-slate-900 dark:to-blue-950 border-b px-4 lg:px-6 py-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  {Object.entries(stepInfo).map(([step, info]) => {
-                    const stepNum = parseInt(step)
-                    const isActive = stepNum === currentStep
-                    const isCompleted = stepNum < currentStep
-                    return (
-                      <React.Fragment key={step}>
-                        <motion.button
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                            isActive
-                              ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 shadow-sm"
-                              : isCompleted
-                              ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 cursor-pointer hover:bg-green-200 dark:hover:bg-green-800"
-                              : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-500 cursor-not-allowed"
-                          }`}
-                          onClick={() => isCompleted && setCurrentStep(stepNum)}
-                          whileHover={isCompleted ? { scale: 1.05 } : {}}
-                          whileTap={isCompleted ? { scale: 0.95 } : {}}
-                        >
-                          <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                            isActive
-                              ? "bg-blue-600 text-white"
-                              : isCompleted
-                              ? "bg-green-600 text-white"
-                              : "bg-gray-300 text-gray-600 dark:bg-gray-600 dark:text-gray-400"
-                          }`}>
-                            {isCompleted ? "✓" : step}
-                          </span>
-                          <span className="hidden sm:inline">{info.title}</span>
-                        </motion.button>
-                        {stepNum < 5 && (
-                          <ChevronRight className="w-3 h-3 text-gray-400 dark:text-gray-600" />
-                        )}
-                      </React.Fragment>
-                    )
-                  })}
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setCompactView(!compactView)}
-                  className="text-xs"
-                >
-                  {compactView ? <Eye className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                  {compactView ? "Expand" : "Compact"}
-                </Button>
-                {currentStep > 1 && (
-                  <Button variant="outline" onClick={resetFlow} size="sm" className="text-xs">
-                    <Plus className="w-3 h-3 mr-1" />
-                    New Analysis
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
+      <div className="w-full h-full flex flex-col bg-background">
+        <StepNavigation
+          steps={stepInfo}
+          currentStep={currentStep}
+          onStepClick={setCurrentStep}
+          onReset={resetFlow}
+          resetLabel="New Analysis"
+        />
 
-          {/* Main Content Area */}
-          <div className="flex-1 overflow-y-auto bg-gray-50/50 dark:bg-gray-950/50">
-            <div className={`${compactView ? 'p-3' : 'p-4 lg:p-6'} ${compactView ? 'space-y-3' : 'space-y-4'} max-w-7xl mx-auto`}>
+        {/* Main Content Area */}
+        <div className="flex-1 overflow-y-auto bg-muted/30 dark:bg-background">
+          <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
             {/* Step 1: Select Dataset */}
             <AnimatePresence>
               {shouldShowStep(1) && (
@@ -278,80 +215,12 @@ export function ExplorationPage() {
                   transition={{ duration: 0.5 }}
                   layout
                 >
-                  <Card
-                    className={`transition-all duration-500 backdrop-blur-sm ${
-                      currentStep === 1
-                        ? "ring-2 ring-blue-400 shadow-xl bg-white/95 dark:bg-slate-900/95"
-                        : currentStep > 1
-                          ? "bg-green-50/80 border-green-300 dark:bg-green-950/50 dark:border-green-800"
-                          : ""
-                    } ${compactView ? 'p-0' : ''}`}
-                  >
-                    {!compactView && (
-                      <CardHeader className="pb-3 bg-gradient-to-r from-blue-50/50 to-transparent dark:from-blue-950/30 rounded-t-lg">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`w-10 h-10 rounded-full flex items-center justify-center shadow-sm ${
-                              currentStep > 1 ? "bg-green-500 text-white" : "bg-blue-500 text-white"
-                            }`}
-                          >
-                            {currentStep > 1 ? <Check className="w-5 h-5" /> : <Database className="w-5 h-5" />}
-                          </div>
-                          <div>
-                            <CardTitle className="text-xl">Select Dataset</CardTitle>
-                            <CardDescription className="text-sm">
-                              Choose from your available data sources
-                            </CardDescription>
-                          </div>
-                        </div>
-                      </CardHeader>
-                    )}
-
-                    <CardContent className={compactView ? "p-3" : "pt-4"}>
-                      {selectedDataset && currentStep > 1 ? (
-                        <motion.div
-                          initial={{ opacity: 0, scale: 0.95 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border border-green-200 dark:border-green-800 rounded-lg p-4"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
-                                <Database className="w-5 h-5 text-green-600 dark:text-green-400" />
-                              </div>
-                              <div>
-                                <h4 className="font-semibold text-sm text-green-900 dark:text-green-100">{selectedDataset.name}</h4>
-                                <p className="text-xs text-green-700 dark:text-green-300">Dataset ID: {selectedDataset.id}</p>
-                              </div>
-                            </div>
-                            <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300 dark:bg-green-900 dark:text-green-300 dark:border-green-700">
-                              <Check className="w-3 h-3 mr-1" />
-                              Selected
-                            </Badge>
-                          </div>
-                        </motion.div>
-                      ) : (
-                        <div className="relative">
-                          <DatasetSearchBar onSelectDataset={handleDatasetSelect} />
-                          {selectedDataset && currentStep === 1 && (
-                            <motion.div
-                              initial={{ opacity: 0, y: -10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              className="absolute right-2 top-2"
-                            >
-                              <Button
-                                size="sm"
-                                onClick={() => handleDatasetSelect(selectedDataset)}
-                                className="shadow-lg"
-                              >
-                                Continue <ChevronRight className="w-3 h-3 ml-1" />
-                              </Button>
-                            </motion.div>
-                          )}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
+                  <DatasetSelector
+                    selectedDataset={selectedDataset}
+                    onDatasetSelect={handleDatasetSelect}
+                    isActive={currentStep === 1}
+                    isCompleted={currentStep > 1}
+                  />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -365,118 +234,15 @@ export function ExplorationPage() {
                   transition={{ duration: 0.5, delay: 0.1 }}
                   layout
                 >
-                  <Card
-                    className={`transition-all duration-500 ${
-                      currentStep === 2
-                        ? "ring-2 ring-blue-200 shadow-lg"
-                        : currentStep > 2
-                          ? "bg-green-50/50 border-green-200"
-                          : ""
-                    }`}
-                  >
-                    <CardHeader className="pb-4">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                            currentStep > 2
-                              ? "bg-green-100 text-green-600"
-                              : currentStep === 2
-                                ? "bg-blue-100 text-blue-600"
-                                : "bg-slate-100 text-slate-400"
-                          }`}
-                        >
-                          {currentStep > 2 ? <Check className="w-4 h-4" /> : <GitBranch className="w-4 h-4" />}
-                        </div>
-                        <div>
-                          <CardTitle className="text-lg">Dataset Versions</CardTitle>
-                          <CardDescription className="text-sm">
-                            Choose a version of {selectedDataset?.name || "your dataset"}
-                          </CardDescription>
-                        </div>
-                      </div>
-                    </CardHeader>
-
-                    <CardContent>
-                      {versionsLoading ? (
-                        <div className="text-center py-8">
-                          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent motion-reduce:animate-[spin_1.5s_linear_infinite]"></div>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
-                          {versions?.map((version, index) => {
-                            const isSelected = selectedVersion?.id === version.id
-                            const isCompleted = currentStep > 2
-
-                            return (
-                              <motion.div
-                                key={version.id}
-                                initial={{ opacity: 0, x: -20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: index * 0.1 }}
-                                whileHover={!isCompleted ? { scale: 1.02 } : {}}
-                                whileTap={!isCompleted ? { scale: 0.98 } : {}}
-                              >
-                                <Card
-                                  className={`h-full transition-all duration-300 relative overflow-hidden group ${
-                                    isSelected && isCompleted
-                                      ? "border-green-400 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 shadow-lg shadow-green-100/50 dark:shadow-green-900/30"
-                                      : isSelected
-                                        ? "border-blue-400 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 shadow-lg shadow-blue-100/50 dark:shadow-blue-900/30"
-                                        : isCompleted
-                                          ? "opacity-60 cursor-default bg-gray-50/50 dark:bg-gray-900/50"
-                                          : "cursor-pointer hover:shadow-xl hover:border-blue-400 hover:bg-gradient-to-br hover:from-blue-50/50 hover:to-indigo-50/50 dark:hover:from-blue-950/20 dark:hover:to-indigo-950/20 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
-                                  }`}
-                                  onClick={!isCompleted ? () => handleVersionSelect(version) : undefined}
-                                >
-                                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-all duration-700" />
-                                  <CardContent className="p-3 relative">
-                                    <div className="flex items-start justify-between mb-2">
-                                      <div className="flex flex-col gap-1">
-                                        <div className="flex items-center gap-2">
-                                          <Badge className="text-[10px] px-2 py-0.5 font-semibold bg-gradient-to-r from-blue-500 to-blue-600 text-white border-0 shadow-sm">v{version.version_number}</Badge>
-                                          <Badge variant="outline" className="text-[10px] px-2 py-0.5 border-slate-300 dark:border-slate-600">
-                                            {version.file_type?.toUpperCase()}
-                                          </Badge>
-                                        </div>
-                                        <span className="text-[11px] text-slate-600 dark:text-slate-400 flex items-center gap-1">
-                                          <Clock className="w-3 h-3" />
-                                          {format(new Date(version.ingestion_timestamp), 'MMM d, yyyy')}
-                                        </span>
-                                      </div>
-                                      {isSelected && isCompleted && (
-                                        <motion.div
-                                          initial={{ scale: 0, rotate: -180 }}
-                                          animate={{ scale: 1, rotate: 0 }}
-                                          transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                                          className="bg-green-500 rounded-full p-1 shadow-md"
-                                        >
-                                          <Check className="w-3 h-3 text-white" />
-                                        </motion.div>
-                                      )}
-                                      {!isCompleted && (
-                                        <motion.div
-                                          animate={{ x: [0, 3, 0] }}
-                                          transition={{ repeat: Infinity, duration: 1.5 }}
-                                          className="bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full p-1 shadow-sm"
-                                        >
-                                          <ChevronRight className="w-3 h-3 text-white" />
-                                        </motion.div>
-                                      )}
-                                    </div>
-                                    <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700">
-                                      <p className="text-[11px] font-medium text-slate-700 dark:text-slate-300">
-                                        {formatByteSize(version.file_size)}
-                                      </p>
-                                    </div>
-                                  </CardContent>
-                                </Card>
-                              </motion.div>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
+                  <VersionGrid
+                    versions={versions}
+                    selectedVersion={selectedVersion}
+                    onVersionSelect={handleVersionSelect}
+                    isActive={currentStep === 2}
+                    isCompleted={currentStep > 2}
+                    isLoading={versionsLoading}
+                    datasetName={selectedDataset?.name}
+                  />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -490,34 +256,34 @@ export function ExplorationPage() {
                   exit={{ opacity: 0, y: -20, scale: 0.95 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <Card className="border-purple-200 bg-purple-50/50">
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <History className="w-5 h-5 text-purple-600" />
+                  <Card className="border-primary/30 bg-primary/5 dark:bg-primary/10">
+                    <CardContent className="p-5">
+                      <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 bg-primary/10 dark:bg-primary/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                          <History className="w-6 h-6 text-primary" />
                         </div>
                         <div className="flex-1">
-                          <h3 className="font-semibold text-purple-900 text-sm mb-1">Previous Analyses Found</h3>
-                          <p className="text-xs text-purple-700 mb-3">
+                          <h3 className="font-semibold text-lg mb-2">Previous Analyses Found</h3>
+                          <p className="text-sm text-muted-foreground mb-4">
                             This dataset version has previous analyses. You can view existing results or run
                             a new analysis.
                           </p>
-                          <div className="flex gap-2">
+                          <div className="flex gap-3">
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() => setShowPreviousAnalyses(false)}
-                              className="flex items-center gap-2 text-xs"
+                              className="flex items-center gap-2"
                             >
-                              <Eye className="w-3 h-3" />
+                              <Eye className="w-4 h-4" />
                               View Previous
                             </Button>
                             <Button
                               size="sm"
                               onClick={handleRunNewAnalysis}
-                              className="flex items-center gap-2 text-xs"
+                              className="flex items-center gap-2"
                             >
-                              <Plus className="w-3 h-3" />
+                              <Plus className="w-4 h-4" />
                               Run New Analysis
                             </Button>
                           </div>
@@ -538,16 +304,16 @@ export function ExplorationPage() {
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <Card className="border-purple-200">
+                  <Card className="border-primary/50 shadow-lg dark:shadow-primary/10 bg-card">
                     <CardHeader className="pb-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full flex items-center justify-center bg-purple-100 text-purple-600">
-                            <History className="w-4 h-4" />
+                          <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-primary/10 text-primary dark:bg-primary/20">
+                            <History className="w-6 h-6" />
                           </div>
                           <div>
-                            <CardTitle className="text-lg">Previous Analyses</CardTitle>
-                            <CardDescription className="text-sm">
+                            <CardTitle className="text-xl font-semibold">Previous Analyses</CardTitle>
+                            <CardDescription className="text-sm mt-1">
                               Select an analysis to view or run a new one
                             </CardDescription>
                           </div>
@@ -555,15 +321,15 @@ export function ExplorationPage() {
                         <Button
                           size="sm"
                           onClick={() => setShowPreviousAnalyses(false)}
-                          className="flex items-center gap-2 text-xs"
+                          className="flex items-center gap-2"
                         >
-                          <Plus className="w-3 h-3" />
+                          <Plus className="w-4 h-4" />
                           New Analysis
                         </Button>
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {mockPreviousAnalyses.map((analysis, index) => (
                           <motion.div
                             key={analysis.id}
@@ -574,15 +340,15 @@ export function ExplorationPage() {
                             whileTap={{ scale: 0.98 }}
                           >
                             <Card
-                              className="h-full cursor-pointer hover:shadow-md transition-all duration-200 border hover:border-purple-300 hover:bg-purple-50/50"
+                              className="h-full cursor-pointer hover:shadow-md hover:border-primary/30 hover:bg-accent/50 dark:hover:bg-accent/20 transition-all duration-200"
                               onClick={() => handleViewPreviousAnalysis()}
                             >
-                              <CardContent className="p-4">
-                                <div className="flex items-start justify-between mb-2">
-                                  <h3 className="font-semibold text-slate-900 text-sm">{analysis.name}</h3>
-                                  <ChevronRight className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                              <CardContent className="p-5">
+                                <div className="flex items-start justify-between mb-3">
+                                  <h3 className="font-semibold text-base">{analysis.name}</h3>
+                                  <ChevronRight className="w-4 h-4 text-primary flex-shrink-0" />
                                 </div>
-                                <div className="flex items-center gap-2 mb-2">
+                                <div className="flex items-center gap-2 mb-3">
                                   <Badge variant="outline" className="text-xs">
                                     {analysis.date}
                                   </Badge>
@@ -590,7 +356,7 @@ export function ExplorationPage() {
                                     {analysis.insights} insights
                                   </Badge>
                                 </div>
-                                <p className="text-xs text-slate-600">Quality: {analysis.quality}</p>
+                                <p className="text-sm text-muted-foreground">Quality: {analysis.quality}</p>
                               </CardContent>
                             </Card>
                           </motion.div>
@@ -612,11 +378,11 @@ export function ExplorationPage() {
                   layout
                 >
                   <Card
-                    className={`transition-all duration-500 ${
+                    className={`transition-all duration-300 ${
                       currentStep === 3
-                        ? "ring-2 ring-blue-200 shadow-lg"
+                        ? "border-primary/50 shadow-lg dark:shadow-primary/10 bg-card"
                         : currentStep > 3
-                          ? "bg-green-50/50 border-green-200"
+                          ? "bg-card/50 border-border/50 opacity-75"
                           : ""
                     }`}
                   >
@@ -624,19 +390,19 @@ export function ExplorationPage() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <div
-                            className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                            className={`w-12 h-12 rounded-xl flex items-center justify-center ${
                               currentStep > 3
-                                ? "bg-green-100 text-green-600"
+                                ? "bg-primary/10 text-primary dark:bg-primary/20"
                                 : currentStep === 3
-                                  ? "bg-blue-100 text-blue-600"
-                                  : "bg-slate-100 text-slate-400"
+                                  ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                                  : "bg-muted text-muted-foreground"
                             }`}
                           >
-                            {currentStep > 3 ? <Check className="w-4 h-4" /> : <Search className="w-4 h-4" />}
+                            {currentStep > 3 ? <Check className="w-6 h-6" /> : <Search className="w-6 h-6" />}
                           </div>
                           <div>
-                            <CardTitle className="text-lg">Data Preview</CardTitle>
-                            <CardDescription className="text-sm">
+                            <CardTitle className="text-xl font-semibold">Data Preview</CardTitle>
+                            <CardDescription className="text-sm mt-1">
                               Preview your dataset before analysis
                             </CardDescription>
                           </div>
@@ -649,16 +415,17 @@ export function ExplorationPage() {
                             {tableData?.headers?.length || 0} columns
                           </Badge>
                           {currentStep === 3 && (
-                            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                               <Button onClick={handleExploreData} size="sm" className="flex items-center gap-2">
-                                <Play className="w-3 h-3" />
+                                <Play className="w-4 h-4" />
                                 Start Analysis
                               </Button>
                             </motion.div>
                           )}
                           {currentStep > 3 && (
-                            <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50 text-xs">
-                              ✓ Data Explored
+                            <Badge variant="secondary" className="text-sm">
+                              <Check className="w-3 h-3 mr-1" />
+                              Data Explored
                             </Badge>
                           )}
                         </div>
@@ -675,7 +442,7 @@ export function ExplorationPage() {
                         {tableData?.headers ? (
                           <>
                             {/* Column Stats Bar */}
-                            <div className="px-4 py-3 bg-gradient-to-r from-slate-50 to-blue-50 dark:from-slate-900 dark:to-blue-950 border-b border-slate-200 dark:border-slate-700">
+                            <div className="px-6 py-4 bg-accent/50 dark:bg-accent/20 border-b">
                               <div className="flex items-center gap-3 overflow-x-auto">
                                 {tableData.headers.slice(0, 6).map((header: string, idx: number) => (
                                   <motion.div
@@ -683,10 +450,10 @@ export function ExplorationPage() {
                                     initial={{ opacity: 0, scale: 0.8 }}
                                     animate={{ opacity: 1, scale: 1 }}
                                     transition={{ delay: 0.3 + idx * 0.05 }}
-                                    className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 rounded-md shadow-sm border border-slate-200 dark:border-slate-700 min-w-fit"
+                                    className="flex items-center gap-2 px-3 py-1.5 bg-card rounded-lg shadow-sm border min-w-fit"
                                   >
-                                    <div className="w-2 h-2 rounded-full bg-gradient-to-r from-blue-400 to-indigo-500" />
-                                    <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{header}</span>
+                                    <div className="w-2 h-2 rounded-full bg-primary" />
+                                    <span className="text-xs font-medium">{header}</span>
                                     <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">Text</Badge>
                                   </motion.div>
                                 ))}
@@ -700,13 +467,13 @@ export function ExplorationPage() {
                             
                             {/* Data Table */}
                             <div className="w-full overflow-hidden">
-                              <div className="overflow-x-auto bg-gradient-to-b from-white to-slate-50/50 dark:from-slate-900 dark:to-slate-950/50">
-                                <div className="min-w-full rounded-b-lg shadow-inner">
+                              <div className="overflow-x-auto">
+                                <div className="min-w-full">
                                   <Table className="min-w-max">
-                                    <TableHeader className="bg-slate-50/50 dark:bg-slate-800/50">
+                                    <TableHeader>
                                       <TableRow>
                                         {tableData.headers.map((header: string) => (
-                                          <TableHead key={header} className="font-medium text-xs">
+                                          <TableHead key={header} className="font-medium text-sm">
                                             {header}
                                           </TableHead>
                                         ))}
@@ -716,7 +483,7 @@ export function ExplorationPage() {
                                       {tableData.rows.slice(0, 5).map((row: Record<string, any>, rowIndex: number) => (
                                         <TableRow key={rowIndex}>
                                           {tableData.headers.map((header: string) => (
-                                            <TableCell key={header} className="text-xs">
+                                            <TableCell key={header} className="text-sm">
                                               {formatCellValue(row[header])}
                                             </TableCell>
                                           ))}
@@ -729,13 +496,13 @@ export function ExplorationPage() {
                             </div>
                           </>
                         ) : (
-                          <div className="p-12 text-center bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-blue-950 rounded-lg">
+                          <div className="p-16 text-center">
                             <motion.div
                               animate={{ rotate: 360 }}
                               transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                              className="w-12 h-12 border-3 border-blue-200 border-t-blue-600 rounded-full mx-auto mb-4"
+                              className="w-12 h-12 border-4 border-muted border-t-primary rounded-full mx-auto mb-4"
                             />
-                            <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Loading preview data...</p>
+                            <p className="text-sm font-medium text-muted-foreground">Loading preview data...</p>
                           </div>
                         )}
                       </motion.div>
@@ -755,30 +522,30 @@ export function ExplorationPage() {
                   layout
                 >
                   <Card
-                    className={`transition-all duration-500 ${
+                    className={`transition-all duration-300 ${
                       currentStep === 4
-                        ? "ring-2 ring-blue-200 shadow-lg"
+                        ? "border-primary/50 shadow-lg dark:shadow-primary/10 bg-card"
                         : currentStep > 4
-                          ? "bg-green-50/50 border-green-200"
+                          ? "bg-card/50 border-border/50 opacity-75"
                           : ""
                     }`}
                   >
                     <CardHeader className="pb-4">
                       <div className="flex items-center gap-3">
                         <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                          className={`w-12 h-12 rounded-xl flex items-center justify-center ${
                             currentStep > 4
-                              ? "bg-green-100 text-green-600"
+                              ? "bg-primary/10 text-primary dark:bg-primary/20"
                               : currentStep === 4
-                                ? "bg-blue-100 text-blue-600"
-                                : "bg-slate-100 text-slate-400"
+                                ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                                : "bg-muted text-muted-foreground"
                           }`}
                         >
-                          {currentStep > 4 ? <Check className="w-4 h-4" /> : <BarChart3 className="w-4 h-4" />}
+                          {currentStep > 4 ? <Check className="w-6 h-6" /> : <BarChart3 className="w-6 h-6" />}
                         </div>
                         <div>
-                          <CardTitle className="text-lg">Analysis Options</CardTitle>
-                          <CardDescription className="text-sm">
+                          <CardTitle className="text-xl font-semibold">Analysis Options</CardTitle>
+                          <CardDescription className="text-sm mt-1">
                             Select how you want to analyze your data
                           </CardDescription>
                         </div>
@@ -786,7 +553,7 @@ export function ExplorationPage() {
                     </CardHeader>
 
                     <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {analysisOptions.map((option, index) => {
                           const Icon = option.icon
                           const isSelected = selectedAnalysis === option.id
@@ -804,56 +571,56 @@ export function ExplorationPage() {
                               <Card
                                 className={`h-full transition-all duration-300 relative overflow-hidden group ${
                                   isSelected && isCompleted
-                                    ? "border-green-400 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 shadow-lg shadow-green-100/50 dark:shadow-green-900/30"
+                                    ? "border-primary/30 bg-primary/5 dark:bg-primary/10 shadow-md"
                                     : isSelected
-                                      ? "border-blue-400 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 shadow-lg shadow-blue-100/50 dark:shadow-blue-900/30"
+                                      ? "border-primary bg-primary/10 dark:bg-primary/20 shadow-lg shadow-primary/10"
                                       : isCompleted
-                                        ? "opacity-60 cursor-default bg-gray-50/50 dark:bg-gray-900/50"
-                                        : "cursor-pointer hover:shadow-xl hover:border-blue-400 hover:bg-gradient-to-br hover:from-blue-50/50 hover:to-indigo-50/50 dark:hover:from-blue-950/20 dark:hover:to-indigo-950/20 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
+                                        ? "opacity-50 cursor-default bg-card/50"
+                                        : "cursor-pointer hover:shadow-md hover:border-primary/30 hover:bg-accent/50 dark:hover:bg-accent/20 bg-card border-border"
                                 }`}
                                 onClick={!isCompleted && option.id === "pandas" ? () => handleAnalysisSelect(option.id) : undefined}
                               >
-                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-all duration-700" />
-                                <CardContent className="p-4 relative">
-                                  <div className="flex items-start gap-3">
-                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg bg-gradient-to-br ${
-                                      option.id === 'pandas' ? 'from-blue-500 to-indigo-600' :
-                                      option.id === 'sweetviz' ? 'from-purple-500 to-pink-600' :
-                                      'from-orange-500 to-red-600'
+                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 dark:via-white/5 to-transparent opacity-0 group-hover:opacity-100 -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-all duration-700" />
+                                <CardContent className="p-5 relative">
+                                  <div className="flex items-start gap-4">
+                                    <div className={`w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 shadow-md ${
+                                      option.id === 'pandas' ? 'bg-primary text-primary-foreground' :
+                                      option.id === 'sweetviz' ? 'bg-purple-600 text-white' :
+                                      'bg-orange-600 text-white'
                                     }`}>
-                                      <Icon className="w-6 h-6 text-white" />
+                                      <Icon className="w-7 h-7" />
                                     </div>
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-start justify-between mb-2">
-                                        <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">{option.name}</h3>
+                                        <h3 className="font-semibold text-base">{option.name}</h3>
                                         {isSelected && isCompleted && (
                                           <motion.div
                                             initial={{ scale: 0, rotate: -180 }}
                                             animate={{ scale: 1, rotate: 0 }}
                                             transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                                            className="bg-green-500 rounded-full p-1 shadow-md"
+                                            className="bg-primary rounded-full p-1.5 shadow-sm"
                                           >
-                                            <Check className="w-3 h-3 text-white" />
+                                            <Check className="w-3.5 h-3.5 text-primary-foreground" />
                                           </motion.div>
                                         )}
                                         {!isCompleted && option.id === "pandas" && (
                                           <motion.div
-                                            animate={{ scale: [1, 1.2, 1] }}
+                                            animate={{ scale: [1, 1.1, 1] }}
                                             transition={{ repeat: Infinity, duration: 2 }}
-                                            className="bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full p-1 shadow-sm"
+                                            className="text-primary"
                                           >
-                                            <Play className="w-3 h-3 text-white" />
+                                            <Play className="w-5 h-5" />
                                           </motion.div>
                                         )}
                                         {!isCompleted && option.id !== "pandas" && (
-                                          <Badge variant="outline" className="text-[10px] px-2 py-0.5">Coming Soon</Badge>
+                                          <Badge variant="outline" className="text-xs">Coming Soon</Badge>
                                         )}
                                       </div>
-                                      <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">{option.description}</p>
+                                      <p className="text-sm text-muted-foreground leading-relaxed mb-3">{option.description}</p>
                                       {option.id === "pandas" && (
-                                        <div className="mt-2 flex items-center gap-2">
-                                          <Badge className="text-[10px] px-2 py-0.5 bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 dark:from-blue-900/30 dark:to-indigo-900/30 dark:text-blue-300 border-0">Recommended</Badge>
-                                          <Badge variant="secondary" className="text-[10px] px-2 py-0.5">~30s</Badge>
+                                        <div className="flex items-center gap-2">
+                                          <Badge className="text-xs" variant="default">Recommended</Badge>
+                                          <Badge variant="secondary" className="text-xs">~30s</Badge>
                                         </div>
                                       )}
                                     </div>
@@ -995,7 +762,7 @@ export function ExplorationPage() {
                                 <Sparkles className="w-4 h-4 text-yellow-500" />
                                 Key Insights
                               </h4>
-                              <ul className="space-y-2 text-sm text-slate-600">
+                              <ul className="space-y-2 text-sm text-muted-foreground">
                                 {[
                                   "Dataset successfully loaded and ready for analysis",
                                   "All columns have been properly identified",
@@ -1009,7 +776,7 @@ export function ExplorationPage() {
                                     transition={{ delay: 1.4 + index * 0.1 }}
                                     className="flex items-start gap-2"
                                   >
-                                    <ChevronRight className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                                    <ChevronRight className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
                                     {insight}
                                   </motion.li>
                                 ))}
@@ -1027,51 +794,11 @@ export function ExplorationPage() {
           </div>
       </div>
 
-      {/* Loading Overlay */}
-      <AnimatePresence>
-        {isAnalyzing && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
-          >
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              transition={{ type: "spring", stiffness: 500, damping: 30 }}
-            >
-              <Card className="w-80">
-                <CardContent className="p-6 text-center">
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
-                    className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full mx-auto mb-4"
-                  />
-                  <h3 className="font-semibold mb-2 text-sm">Analyzing Data</h3>
-                  <p className="text-xs text-slate-600">
-                    Running {analysisOptions.find((a) => a.id === selectedAnalysis)?.name}...
-                  </p>
-                  <motion.div
-                    className="w-full bg-slate-200 rounded-full h-1.5 mt-4"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.5 }}
-                  >
-                    <motion.div
-                      className="bg-blue-600 h-1.5 rounded-full"
-                      initial={{ width: "0%" }}
-                      animate={{ width: "100%" }}
-                      transition={{ duration: 2.5, ease: "easeInOut" }}
-                    />
-                  </motion.div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <LoadingOverlay
+        isLoading={isAnalyzing}
+        title="Analyzing Data"
+        description={`Running ${analysisOptions.find((a) => a.id === selectedAnalysis)?.name || 'analysis'}...`}
+      />
     </div>
   )
 }
