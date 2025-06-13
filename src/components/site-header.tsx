@@ -19,7 +19,7 @@ export function SiteHeader() {
         <div className="ml-auto flex items-center gap-2">
           {user && (
             <>
-              <span className="text-sm mr-2">Hello, {user.sub}</span>
+              <span className="text-sm mr-2">Role: {user.role_id || "N/A"}</span>
               <Button 
                 variant="ghost" 
                 size="sm" 

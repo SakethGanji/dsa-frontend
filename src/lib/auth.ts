@@ -1,7 +1,8 @@
 import type { AuthTokens, User } from '../types/auth';
+import { env } from '../config/env';
 
 const AUTH_STORAGE_KEY = 'auth_tokens';
-const API_BASE_URL = 'http://localhost:8000/api';
+const API_BASE_URL = env.API_BASE_URL;
 
 // Save tokens to localStorage
 export function saveTokens(tokens: AuthTokens): void {

@@ -1,28 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, Filter, Grid, List, Loader2 } from "lucide-react";
+import { Search, Grid, List, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuGroup,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-    Select,
-    SelectContent,
-    SelectGroup,
-    SelectItem,
-    SelectLabel,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
 // Simplified toast hook for our demo
 const useToast = () => {
     return {
@@ -37,11 +19,13 @@ import { PaginationControls } from "@/components/pagination-controls";
 import { ExpandableDatasetCard } from "./expandable-dataset-card";
 import { usePaginatedDatasets } from "@/hooks/use-datasets";
 import type { DatasetInfo } from "../../types/dataset";
+import { DatasetUploadModal } from "./dataset-upload-modal";
 
 export function DatasetsDisplay() {
     const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
     const [debouncedSearch, setDebouncedSearch] = useState("");
     const [searchInput, setSearchInput] = useState("");
+    const [showUploadModal, setShowUploadModal] = useState(false);
     const { toast } = useToast();
 
     // Initialize dataset query with TanStack Query
@@ -112,11 +96,6 @@ export function DatasetsDisplay() {
         // Implement save/bookmark logic
     };
 
-    // Sort options handler
-    const handleSortChange = (value: string) => {
-        // In a real application, you would update the sort criteria in your query
-        console.log(`Sorting by: ${value}`);
-    };
 
     return (
         <div className="flex flex-col space-y-6">
@@ -128,7 +107,7 @@ export function DatasetsDisplay() {
                     <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
                         type="search"
-                        placeholder="Search datasets..."
+                        placeholder="In development..."
                         className="pl-8 w-full"
                         value={searchInput}
                         onChange={handleSearchChange}
@@ -136,39 +115,6 @@ export function DatasetsDisplay() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm">
-                                <Filter className="h-4 w-4 mr-2" />
-                                Filter
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-56">
-                            <DropdownMenuLabel>Filter by</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuGroup>
-                                <DropdownMenuItem>File Type</DropdownMenuItem>
-                                <DropdownMenuItem>Date Updated</DropdownMenuItem>
-                                <DropdownMenuItem>Size</DropdownMenuItem>
-                                <DropdownMenuItem>Tags</DropdownMenuItem>
-                            </DropdownMenuGroup>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-
-                    <Select defaultValue="newest" onValueChange={handleSortChange}>
-                        <SelectTrigger className="w-full sm:w-[180px]">
-                            <SelectValue placeholder="Sort by" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectGroup>
-                                <SelectLabel>Sort by</SelectLabel>
-                                <SelectItem value="newest">Newest First</SelectItem>
-                                <SelectItem value="oldest">Oldest First</SelectItem>
-                                <SelectItem value="name-asc">Name (A-Z)</SelectItem>
-                                <SelectItem value="name-desc">Name (Z-A)</SelectItem>
-                            </SelectGroup>
-                        </SelectContent>
-                    </Select>
 
                     <div className="flex border rounded-md">
                         <Button
@@ -191,7 +137,7 @@ export function DatasetsDisplay() {
                         </Button>
                     </div>
 
-                    <Button>Upload Dataset</Button>
+                    <Button onClick={() => setShowUploadModal(true)}>Upload Dataset</Button>
                 </div>
             </div>
 
@@ -247,6 +193,18 @@ export function DatasetsDisplay() {
                     )}
                 </>
             )}
+
+            <DatasetUploadModal
+                open={showUploadModal}
+                onOpenChange={setShowUploadModal}
+                onUploadSuccess={() => {
+                    refetch();
+                    toast({
+                        title: "Success",
+                        description: "Dataset uploaded successfully",
+                    });
+                }}
+            />
         </div>
     );
 }

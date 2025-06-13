@@ -1,8 +1,7 @@
 import * as React from "react"
 import {
   IconTable,
-  IconInnerShadowTop,
-  IconFileAnalytics, IconChartScatter, IconChartDots,
+  IconChartScatter, IconChartDots,
 } from "@tabler/icons-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -43,11 +42,6 @@ const sidebarData = {
       url: "/sampling",
       icon: IconChartScatter,
     },
-    {
-      title: "Outputs",
-      url: "/outputs",
-      icon: IconFileAnalytics,
-    },
   ],
   // Bottom part of nav bar (Settings, Get Help, Search)
   secondaryNavItems: [
@@ -82,8 +76,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   className="data-[slot=sidebar-menu-button]:!p-1.5"
               >
                 <a href="#">
-                  <IconInnerShadowTop className="!size-5" />
-                  <span className="text-base font-semibold">name</span>
+                  <span className="text-base font-semibold">AI Accelerator</span>
                 </a>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -99,7 +92,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarContent>
         <SidebarFooter>
           {/* Bottom part of nav bar (fixed footer) - NavUser kept as is */}
-          {isAuthenticated && !isLoading && user && <NavUser user={{name: user.sub || "User", email: user.sub ? `Username: ${user.sub}` : "Details N/A", avatar: "/avatars/shadcn.jpg"}} />}
+          {isAuthenticated && !isLoading && user && <NavUser user={{name: user.sub || "User", email: user.role_id ? `Role: ${user.role_id}` : "Role: N/A", avatar: "/avatars/shadcn.jpg"}} />}
         </SidebarFooter>
       </Sidebar>
   )

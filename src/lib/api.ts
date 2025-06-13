@@ -1,7 +1,8 @@
 import type { DatasetResponse } from '../../types/dataset';
 import { getStoredTokens, isTokenExpired, refreshAccessToken, removeTokens } from './auth';
+import { env } from '../config/env';
 
-const API_BASE_URL = 'http://localhost:8000/api';
+const API_BASE_URL = env.API_BASE_URL;
 
 interface ApiOptions {
   endpoint: string;

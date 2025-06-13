@@ -1,6 +1,7 @@
 import { getStoredTokens, isTokenExpired, refreshAccessToken, removeTokens } from '../auth';
+import { env } from '../../config/env';
 
-export const API_BASE_URL = 'http://localhost:8000/api';
+export const API_BASE_URL = env.API_BASE_URL;
 
 export interface ApiClientOptions {
   endpoint: string;
