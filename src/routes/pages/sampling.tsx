@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -17,6 +17,7 @@ import { StepNavigation, DatasetSelector, VersionGrid, LoadingOverlay } from "@/
 import type { Dataset, DatasetVersion, MultiRoundSamplingRequest, MultiRoundSamplingResponse } from "@/lib/api/types"
 import { useQuery } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { useDatasetContext } from "@/contexts/DatasetContext"
 
 const stepInfo = {
   1: { title: "Select Dataset", subtitle: "Choose data source" },
@@ -26,9 +27,17 @@ const stepInfo = {
 }
 
 export function SamplingPage() {
-  const [currentStep, setCurrentStep] = useState(1)
-  const [selectedDataset, setSelectedDataset] = useState<Dataset | null>(null)
-  const [selectedVersion, setSelectedVersion] = useState<DatasetVersion | null>(null)
+  // Use global dataset context
+  const { selectedDataset, setSelectedDataset, selectedVersion, setSelectedVersion } = useDatasetContext()
+  
+  // Calculate initial step based on existing selections
+  const getInitialStep = () => {
+    if (selectedVersion) return 3 // Both dataset and version selected
+    if (selectedDataset) return 2 // Only dataset selected
+    return 1 // Nothing selected
+  }
+  
+  const [currentStep, setCurrentStep] = useState(getInitialStep())
   const [samplingResponse, setSamplingResponse] = useState<MultiRoundSamplingResponse | null>(null)
   const [lastRequest, setLastRequest] = useState<MultiRoundSamplingRequest | null>(null)
   
@@ -37,6 +46,14 @@ export function SamplingPage() {
   const [pageSize] = useState(100) // Fixed page size for consistency
   const [totalPages, setTotalPages] = useState(1)
   const [isLoadingPage, setIsLoadingPage] = useState(false)
+  
+  // Update step when global selections change (e.g., from another tab)
+  useEffect(() => {
+    const newStep = getInitialStep()
+    setCurrentStep(newStep)
+    // Clear sampling response when dataset/version changes
+    setSamplingResponse(null)
+  }, [selectedDataset, selectedVersion])
 
   // Query hooks
   const { data: versions, isLoading: versionsLoading } = useDatasetVersions(
@@ -108,7 +125,7 @@ export function SamplingPage() {
 
   const handleDatasetSelect = (dataset: Dataset) => {
     setSelectedDataset(dataset)
-    setSelectedVersion(null)
+    // Version is automatically cleared by context when dataset changes
     setSamplingResponse(null)
     setTimeout(() => setCurrentStep(2), 300)
   }

@@ -26,6 +26,7 @@ import type { Dataset, DatasetVersion } from "@/lib/api/types"
 import { formatByteSize } from "@/lib/utils"
 import { format } from "date-fns"
 import { useQuery } from "@tanstack/react-query"
+import { useDatasetContext } from "@/contexts/DatasetContext"
 import {
   Table,
   TableBody,
@@ -65,13 +66,27 @@ const stepInfo = {
 }
 
 export function ExplorationPage() {
-  const [currentStep, setCurrentStep] = useState(1)
-  const [selectedDataset, setSelectedDataset] = useState<Dataset | null>(null)
-  const [selectedVersion, setSelectedVersion] = useState<DatasetVersion | null>(null)
+  // Use global dataset context
+  const { selectedDataset, setSelectedDataset, selectedVersion, setSelectedVersion } = useDatasetContext()
+  
+  // Calculate initial step based on existing selections
+  const getInitialStep = () => {
+    if (selectedVersion) return 3 // Both dataset and version selected
+    if (selectedDataset) return 2 // Only dataset selected
+    return 1 // Nothing selected
+  }
+  
+  const [currentStep, setCurrentStep] = useState(getInitialStep())
   const [selectedAnalysis, setSelectedAnalysis] = useState<string | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [showPreviousAnalyses, setShowPreviousAnalyses] = useState(false)
   const [viewingPrevious, setViewingPrevious] = useState(false)
+  
+  // Update step when global selections change (e.g., from another tab)
+  useEffect(() => {
+    const newStep = getInitialStep()
+    setCurrentStep(newStep)
+  }, [selectedDataset, selectedVersion])
 
   // Query hooks
   const { data: versions, isLoading: versionsLoading } = useDatasetVersions(
@@ -114,7 +129,7 @@ export function ExplorationPage() {
 
   const handleDatasetSelect = (dataset: Dataset) => {
     setSelectedDataset(dataset)
-    setSelectedVersion(null)
+    // Version is automatically cleared by context when dataset changes
     setTimeout(() => setCurrentStep(2), 300)
   }
 
@@ -186,10 +201,10 @@ export function ExplorationPage() {
   }] : []
 
   // Format cell value based on type
-  const formatCellValue = (value: any) => {
+  const formatCellValue = (value: unknown) => {
     if (value === null || value === undefined) return '-'
     if (typeof value === 'object') return JSON.stringify(value)
-    return value.toString()
+    return String(value)
   }
 
   return (
@@ -480,7 +495,7 @@ export function ExplorationPage() {
                                       </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                      {tableData.rows.slice(0, 5).map((row: Record<string, any>, rowIndex: number) => (
+                                      {tableData.rows.slice(0, 5).map((row: Record<string, unknown>, rowIndex: number) => (
                                         <TableRow key={rowIndex}>
                                           {tableData.headers.map((header: string) => (
                                             <TableCell key={header} className="text-sm">

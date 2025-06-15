@@ -169,8 +169,13 @@ export class ApiClient {
   }
 
   // Add custom interceptors
-  addRequestInterceptor = this.interceptors.addRequestInterceptor.bind(this.interceptors);
-  addResponseInterceptor = this.interceptors.addResponseInterceptor.bind(this.interceptors);
+  addRequestInterceptor(interceptor: any) {
+    return this.interceptors.addRequestInterceptor(interceptor);
+  }
+  
+  addResponseInterceptor(interceptor: any) {
+    return this.interceptors.addResponseInterceptor(interceptor);
+  }
 }
 
 // Export default instance

@@ -9,6 +9,7 @@ import { api } from "@/lib/api/index" // Corrected import path
 import type { Dataset } from "@/lib/api/types"
 import { formatDistanceToNow } from 'date-fns'
 import { useAuth } from "./providers/auth-provider"
+import { useDatasetContext } from "@/contexts/DatasetContext"
 
 interface DatasetAction {
   id: number
@@ -53,9 +54,9 @@ export function DatasetSearchBar({ onSelectDataset }: { onSelectDataset?: (datas
   const [datasets, setDatasets] = useState<Dataset[]>([])
   const [loading, setLoading] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
-  const [selectedDataset, setSelectedDataset] = useState<Dataset | null>(null)
   const debouncedQuery = useDebounce(query, 300)
   const { isAuthenticated } = useAuth()
+  const { selectedDataset, setSelectedDataset } = useDatasetContext()
   const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null) // Added blur timeout ref
 
   useEffect(() => {
@@ -91,7 +92,9 @@ export function DatasetSearchBar({ onSelectDataset }: { onSelectDataset?: (datas
   }
 
   const handleSelectDataset = (dataset: Dataset) => {
+    // Set the global dataset context
     setSelectedDataset(dataset);
+    // Also call the optional callback if provided (for backwards compatibility)
     if (onSelectDataset) {
       onSelectDataset(dataset);
     }
@@ -148,7 +151,7 @@ export function DatasetSearchBar({ onSelectDataset }: { onSelectDataset?: (datas
       blurTimeoutRef.current = null;
     }
     setIsFocused(true);
-    setSelectedDataset(null); // Clear previous selection on focus
+    // Don't clear the global dataset selection on focus
   }
 
   const handleBlur = () => {

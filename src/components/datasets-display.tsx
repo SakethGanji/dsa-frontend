@@ -17,7 +17,8 @@ const useToast = () => {
 import { PaginationControls } from "@/components/pagination-controls";
 
 import { ExpandableDatasetCard } from "./expandable-dataset-card";
-import { usePaginatedDatasets } from "@/hooks/use-datasets";
+import { usePaginatedDatasets } from "@/hooks/use-datasets-query-v2";
+import { mapApiResponseToDatasetInfo } from "../../types/dataset";
 import type { DatasetInfo } from "../../types/dataset";
 import { DatasetUploadModal } from "./dataset-upload-modal";
 
@@ -35,15 +36,15 @@ export function DatasetsDisplay() {
         isError,
         error,
         refetch,
-        search,
-        pagination,
-        filters,
-        setFilters,
-    } = usePaginatedDatasets({ 
-        limit: 10, 
-        offset: 0,
-        search: debouncedSearch
-    });
+        page,
+        pageSize,
+        handlePageChange,
+        handlePageSizeChange,
+    } = usePaginatedDatasets(
+        1,  // initialPage
+        10, // initialPageSize
+        { name: debouncedSearch } // filters
+    );
 
     // Debounce search input
     useEffect(() => {
@@ -75,8 +76,8 @@ export function DatasetsDisplay() {
         }
     }, [isError, error, toast]);
 
-    // Extract datasets for the component
-    const datasetInfos = data?.datasetInfos || [];
+    // Extract datasets for the component and transform to DatasetInfo format
+    const datasetInfos: DatasetInfo[] = (data?.data || []).map(mapApiResponseToDatasetInfo);
 
     const handleDatasetView = (datasetId: number) => {
         const dataset = datasetInfos.find(d => d.id === datasetId);
@@ -178,16 +179,14 @@ export function DatasetsDisplay() {
                     </div>
 
                     {/* Pagination Controls */}
-                    {datasetInfos.length > 0 && (
+                    {datasetInfos.length > 0 && data && (
                         <PaginationControls
-                            currentPage={pagination.currentPage}
-                            totalPages={Math.max(pagination.totalPages || 1, 
-                                // Make sure we show at least 1 page even if totalPages is 0
-                                datasetInfos.length > 0 ? 1 : 0)}
-                            onPageChange={pagination.goToPage}
-                            pageSize={filters.limit || 10}
-                            onPageSizeChange={pagination.setPageSize}
-                            totalItems={data?.total}
+                            currentPage={page}
+                            totalPages={data.totalPages || 1}
+                            onPageChange={handlePageChange}
+                            pageSize={pageSize}
+                            onPageSizeChange={handlePageSizeChange}
+                            totalItems={data.total}
                             className="mt-8"
                         />
                     )}

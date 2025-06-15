@@ -1,5 +1,5 @@
 import { useMutation, useQuery, type UseMutationOptions } from '@tanstack/react-query';
-import { authApi } from '../lib/api';
+import { api } from '../lib/api';
 import { loginUser } from '../lib/auth';
 import type { AuthTokens, LoginCredentials } from '../types/auth';
 import { useAuth } from '../components/providers/auth-provider';
@@ -51,7 +51,7 @@ export function useSession(options = {}) {
       }
       
       try {
-        return await authApi.validateSession();
+        return await api.auth.validateSession();
       } catch (error) {
         // If the session is invalid, log the user out
         logout();

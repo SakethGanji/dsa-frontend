@@ -1,6 +1,7 @@
 import { RouterProvider } from "@tanstack/react-router"
 import { ThemeProvider } from "@/components/theme-provider"
 import { QueryProvider } from "@/components/providers/query-provider"
+import { DatasetProvider } from "@/contexts/DatasetContext"
 import { router } from "@/routes/routes"
 
 // Register router for HMR
@@ -15,7 +16,9 @@ function App() {
         <div>
             <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
                 <QueryProvider>
-                    <RouterProvider router={router} />
+                    <DatasetProvider>
+                        <RouterProvider router={router} />
+                    </DatasetProvider>
                 </QueryProvider>
             </ThemeProvider>
         </div>

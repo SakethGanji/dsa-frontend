@@ -12,6 +12,7 @@ import {
   usePaginatedQuery,
   type QueryConfig,
   type MutationConfig,
+  type PaginationParams,
 } from '@/lib/query';
 import { apiClient, ApiError } from '@/lib/api/core';
 import type {
@@ -33,8 +34,26 @@ const datasetsApi = {
   getAll: (params?: DatasetListParams) => 
     apiClient.get<Dataset[]>('/datasets', { params }),
   
-  getPaginated: (params?: DatasetListParams) =>
-    apiClient.get<PaginatedResponse<Dataset>>('/datasets/paginated', { params }),
+  getPaginated: (params?: DatasetListParams & PaginationParams) => {
+    // Convert page/pageSize to limit/offset for the API
+    const { page = 1, pageSize = 10, ...restParams } = params || {};
+    const limit = pageSize;
+    const offset = (page - 1) * pageSize;
+    
+    return apiClient.get<Dataset[]>('/datasets', { 
+      params: { ...restParams, limit, offset } 
+    }).then(data => {
+      // Return in the format expected by usePaginatedQuery
+      const totalItems = data.length; // In a real API, this would come from headers
+      return {
+        data: data,
+        total: totalItems,
+        page,
+        pageSize,
+        totalPages: Math.ceil(totalItems / pageSize)
+      };
+    });
+  },
   
   getById: (id: number) => 
     apiClient.get<Dataset>(`/datasets/${id}`),

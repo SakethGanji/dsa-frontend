@@ -1,11 +1,14 @@
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
+import { Badge } from "@/components/ui/badge"
 import { useAuth } from "../components/providers/auth-provider"
-import { LogOut } from "lucide-react"
+import { useDatasetContext } from "@/contexts/DatasetContext"
+import { LogOut, Database, GitBranch, X, ChevronRight } from "lucide-react"
 
 export function SiteHeader() {
   const { logout, user } = useAuth();
+  const { selectedDataset, selectedVersion, clearSelection } = useDatasetContext();
 
   return (
     <header className="flex h-(--header-height) shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
@@ -16,6 +19,34 @@ export function SiteHeader() {
           className="mx-2 data-[orientation=vertical]:h-4"
         />
         <h1 className="text-base font-medium">Datasets</h1>
+        
+        {/* Show selected dataset info */}
+        {selectedDataset && (
+          <>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            <div className="flex items-center gap-2">
+              <Database className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">{selectedDataset.name}</span>
+              {selectedVersion && (
+                <>
+                  <GitBranch className="h-3 w-3 text-muted-foreground ml-1" />
+                  <Badge variant="secondary" className="text-xs h-5">
+                    v{selectedVersion.version_number}
+                  </Badge>
+                </>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5 ml-1"
+                onClick={clearSelection}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          </>
+        )}
+        
         <div className="ml-auto flex items-center gap-2">
           {user && (
             <>
