@@ -16,6 +16,5 @@ export * from './use-multi-round-sampling';
 
 // Legacy hooks (kept for backwards compatibility)
 export * from './use-auth';
-export * from './use-datasets';
 export * from './use-mobile';
 export * from './use-outside-click';

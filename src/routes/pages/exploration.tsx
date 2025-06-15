@@ -723,7 +723,7 @@ export function ExplorationPage() {
                                 { label: "Total Rows", value: tableData?.total_count || "N/A", gradient: "from-blue-500 to-indigo-600", bgGradient: "from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30", icon: Database },
                                 { label: "Columns", value: tableData?.headers?.length || 0, gradient: "from-green-500 to-emerald-600", bgGradient: "from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30", icon: GitBranch },
                                 { label: "Data Quality", value: "98.5%", gradient: "from-purple-500 to-pink-600", bgGradient: "from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30", icon: Sparkles },
-                                { label: "File Size", value: formatByteSize(selectedVersion?.file_size), gradient: "from-orange-500 to-red-600", bgGradient: "from-orange-50 to-red-50 dark:from-orange-950/30 dark:to-red-950/30", icon: FileText },
+                                { label: "File Size", value: formatByteSize(selectedVersion?.overlay_file_size || selectedVersion?.materialized_file_size || selectedVersion?.file_size), gradient: "from-orange-500 to-red-600", bgGradient: "from-orange-50 to-red-50 dark:from-orange-950/30 dark:to-red-950/30", icon: FileText },
                               ].map((stat, index) => {
                                 const Icon = stat.icon
                                 return (

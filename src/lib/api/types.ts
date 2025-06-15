@@ -62,16 +62,30 @@ export interface SheetMetadata {
 
 export interface DatasetVersion {
   dataset_id: number;
+  parent_version_id?: number | null;
+  overlay_file_id?: number | null;
+  message?: string | null;
   version_number: number;
-  file_id: number;
-  uploaded_by: number;
+  status?: string | null;
+  created_by: number;
   id: number;
-  ingestion_timestamp: string;
-  last_updated_timestamp: string;
+  materialized_file_id?: number | null;
+  created_at: string;
+  updated_at: string;
+  created_by_soeid?: string | null;
+  overlay_file_type?: string | null;
+  overlay_file_size?: number | null;
+  materialized_file_type?: string | null;
+  materialized_file_size?: number | null;
+  sheets?: Sheet[] | null;
+  // Legacy fields for backward compatibility
+  file_id?: number;
+  uploaded_by?: number;
+  ingestion_timestamp?: string;
+  last_updated_timestamp?: string;
   uploaded_by_soeid?: string | null;
   file_type?: string | null;
   file_size?: number | null;
-  sheets?: Sheet[] | null;
 }
 
 export interface Dataset {

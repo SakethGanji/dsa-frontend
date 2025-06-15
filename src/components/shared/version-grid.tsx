@@ -98,11 +98,16 @@ export function VersionGrid({
                               v{version.version_number}
                             </Badge>
                             <Badge variant="outline" className="text-xs px-2.5 py-0.5">
-                              {version.file_type?.toUpperCase()}
+                              {(version.overlay_file_type || version.materialized_file_type || version.file_type)?.toUpperCase()}
                             </Badge>
+                            {version.status && (
+                              <Badge variant={version.status === 'active' ? 'secondary' : 'outline'} className="text-xs px-2 py-0.5">
+                                {version.status}
+                              </Badge>
+                            )}
                           </div>
                           <span className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                            {format(new Date(version.ingestion_timestamp), 'MMM d, yyyy')}
+                            {format(new Date(version.created_at || version.ingestion_timestamp || ''), 'MMM d, yyyy')}
                           </span>
                         </div>
                         {isSelected && isCompleted && (
@@ -127,8 +132,13 @@ export function VersionGrid({
                       </div>
                       <div className="mt-3 pt-3 border-t border-border/50">
                         <p className="text-sm font-medium">
-                          {formatByteSize(version.file_size)}
+                          {formatByteSize(version.overlay_file_size || version.materialized_file_size || version.file_size)}
                         </p>
+                        {version.message && (
+                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                            {version.message}
+                          </p>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
