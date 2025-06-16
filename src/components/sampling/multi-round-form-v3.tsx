@@ -39,7 +39,7 @@ import type {
   DataFilters
 } from "@/lib/api/types"
 import { ParametersForm } from "./parameters-form"
-import { CleanFilterBuilder } from "./clean-filter-builder"
+import { RowFilter } from "./row-filter"
 import { ColumnSelector } from "./column-selector"
 import { cn } from "@/lib/utils"
 
@@ -482,10 +482,10 @@ export function MultiRoundFormV3({
                                 </Badge>
                               )}
                             </div>
-                            <CleanFilterBuilder
+                            <RowFilter
                               columns={datasetColumns}
-                              filters={round.filters}
-                              onFiltersChange={(filters) => updateRound(round.round_number, { filters })}
+                              filters={round.filters as any}
+                              onFiltersChange={(filters) => updateRound(round.round_number, { filters: filters as any })}
                             />
                           </div>
 

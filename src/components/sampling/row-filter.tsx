@@ -8,6 +8,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { TextFilterInput, type Column } from "@/components/ui/text-filter-input"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { 
   Plus, 
   Trash2, 
@@ -16,7 +19,9 @@ import {
   Type,
   Calendar,
   Binary,
-  Database
+  Database,
+  Code2,
+  Sliders
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { SamplingCondition, SamplingFilters } from "@/lib/api/types"
@@ -106,6 +111,8 @@ export function RowFilter({
   const [conditions, setConditions] = useState<SamplingCondition[]>(filters?.conditions || [])
   const [logic, setLogic] = useState<'AND' | 'OR'>(filters?.logic || 'AND')
   const [isEnabled, setIsEnabled] = useState(!!filters)
+  const [filterMode, setFilterMode] = useState<'simple' | 'advanced'>('simple')
+  const [advancedExpression, setAdvancedExpression] = useState('')
 
   const addCondition = () => {
     const newCondition: SamplingCondition = {
@@ -227,23 +234,36 @@ export function RowFilter({
 
       {isEnabled && (
         <CardContent className="space-y-4">
-          {conditions.length > 1 && (
-            <RadioGroup value={logic} onValueChange={(v) => updateLogic(v as 'AND' | 'OR')}>
-              <div className="flex items-center gap-4">
-                <Label className="text-sm font-medium">Combine conditions with:</Label>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="AND" id="and" />
-                  <Label htmlFor="and" className="font-normal cursor-pointer">AND</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="OR" id="or" />
-                  <Label htmlFor="or" className="font-normal cursor-pointer">OR</Label>
-                </div>
-              </div>
-            </RadioGroup>
-          )}
+          <Tabs value={filterMode} onValueChange={(v) => setFilterMode(v as 'simple' | 'advanced')}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="simple" className="flex items-center gap-2">
+                <Sliders className="h-4 w-4" />
+                Simple Filter
+              </TabsTrigger>
+              <TabsTrigger value="advanced" className="flex items-center gap-2">
+                <Code2 className="h-4 w-4" />
+                Advanced Expression
+              </TabsTrigger>
+            </TabsList>
 
-          <ScrollArea className={cn(
+            <TabsContent value="simple" className="space-y-4">
+              {conditions.length > 1 && (
+                <RadioGroup value={logic} onValueChange={(v) => updateLogic(v as 'AND' | 'OR')}>
+                  <div className="flex items-center gap-4">
+                    <Label className="text-sm font-medium">Combine conditions with:</Label>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="AND" id="and" />
+                      <Label htmlFor="and" className="font-normal cursor-pointer">AND</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="OR" id="or" />
+                      <Label htmlFor="or" className="font-normal cursor-pointer">OR</Label>
+                    </div>
+                  </div>
+                </RadioGroup>
+              )}
+
+              <ScrollArea className={cn(
             "w-full",
             conditions.length > 3 ? "h-[300px] pr-4" : ""
           )}>
@@ -361,29 +381,53 @@ export function RowFilter({
                 )
               })}
             </div>
-          </ScrollArea>
+              </ScrollArea>
 
-          <Separator />
+              <Separator />
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={addCondition}
-            className="w-full"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Condition
-          </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={addCondition}
+                className="w-full"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Condition
+              </Button>
 
-          <div className="text-xs text-muted-foreground space-y-1">
-            <p className="font-medium">Available operators:</p>
-            <ul className="list-disc list-inside space-y-0.5 text-[11px]">
-              <li><strong>Text columns:</strong> =, !=, LIKE (pattern match), ILIKE (case-insensitive), IN, NOT IN</li>
-              <li><strong>Numeric columns:</strong> =, !=, &gt;, &lt;, &gt;=, &lt;=, IN, NOT IN</li>
-              <li><strong>Date/Time columns:</strong> =, !=, &gt;, &lt;, &gt;=, &lt;=</li>
-              <li><strong>All columns:</strong> IS NULL, IS NOT NULL</li>
-            </ul>
-          </div>
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p className="font-medium">Available operators:</p>
+                <ul className="list-disc list-inside space-y-0.5 text-[11px]">
+                  <li><strong>Text columns:</strong> =, !=, LIKE (pattern match), ILIKE (case-insensitive), IN, NOT IN</li>
+                  <li><strong>Numeric columns:</strong> =, !=, &gt;, &lt;, &gt;=, &lt;=, IN, NOT IN</li>
+                  <li><strong>Date/Time columns:</strong> =, !=, &gt;, &lt;, &gt;=, &lt;=</li>
+                  <li><strong>All columns:</strong> IS NULL, IS NOT NULL</li>
+                </ul>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="advanced" className="space-y-4">
+              <TextFilterInput
+                columns={columns.map(col => ({
+                  id: col,
+                  label: col,
+                  type: columnTypes[col] || 'text'
+                } as Column))}
+                value={advancedExpression}
+                onChange={setAdvancedExpression}
+                onColumnDetected={(column, position) => {
+                  console.log('Column detected:', column, 'at position:', position)
+                }}
+              />
+              
+              <Alert>
+                <AlertDescription>
+                  <strong>Note:</strong> The advanced expression filter is currently in preview mode. 
+                  Write complex filter expressions using natural language syntax with auto-detected columns and operators.
+                </AlertDescription>
+              </Alert>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       )}
     </Card>
