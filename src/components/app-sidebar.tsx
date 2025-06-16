@@ -73,10 +73,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarMenuItem>
               <SidebarMenuButton
                   asChild
-                  className="data-[slot=sidebar-menu-button]:!p-1.5"
+                  className="data-[slot=sidebar-menu-button]:!p-1.5 group"
               >
-                <a href="#">
-                  <span className="text-base font-semibold">AI Accelerator</span>
+                <a href="#" className="flex items-center gap-2">
+                  {/*<img */}
+                  {/*  src="/logo.png" */}
+                  {/*  alt="Logo"*/}
+                  {/*  className="w-6 h-6"*/}
+                  {/*/>*/}
+                  <span className="text-sm font-semibold bg-primary text-primary-foreground px-3 py-1.5 rounded-md group-hover:shadow-md transition-all">
+                    AI Accelerator
+                  </span>
                 </a>
               </SidebarMenuButton>
             </SidebarMenuItem>

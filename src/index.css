@@ -57,7 +57,7 @@
   --card-foreground: #faf9f5;
   --popover: #30302e;
   --popover-foreground: #e5e5e2;
-  --primary: #d97757;
+  --primary: #4b9eff;
   --primary-foreground: #ffffff;
   --secondary: #faf9f5;
   --secondary-foreground: #30302e;
@@ -69,7 +69,7 @@
   --destructive-foreground: #ffffff;
   --border: #3e3e38;
   --input: #52514a;
-  --ring: #207fde;
+  --ring: #4b9eff;
   --chart-1: #b05730;
   --chart-2: #9c87f5;
   --chart-3: #1a1915;
@@ -77,12 +77,12 @@
   --chart-5: #b4552d;
   --sidebar: #1f1e1d;
   --sidebar-foreground: #c3c0b6;
-  --sidebar-primary: #343434;
+  --sidebar-primary: #4b9eff;
   --sidebar-primary-foreground: #fbfbfb;
   --sidebar-accent: #0f0f0e;
   --sidebar-accent-foreground: #c3c0b6;
-  --sidebar-border: #ebebeb;
-  --sidebar-ring: #b5b5b5;
+  --sidebar-border: #3e3e38;
+  --sidebar-ring: #4b9eff;
   --font-sans: IBM Plex Mono, monospace;
   --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
