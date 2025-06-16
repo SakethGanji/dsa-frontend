@@ -162,8 +162,8 @@ export function DatasetsDisplay() {
             ) : (
                 <>
                     {/* Dataset grid or list */}
-                    <div className={viewMode === "list" ? "flex flex-col gap-4 max-w-4xl mx-auto" : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"}>
-                        {datasetInfos.length > 0 ? (
+                    {datasetInfos.length > 0 ? (
+                        <div className={viewMode === "list" ? "flex flex-col gap-4 max-w-6xl mx-auto w-full" : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4"}>
                             <ExpandableDatasetCard
                                 datasets={datasetInfos}
                                 onView={handleDatasetView}
@@ -171,12 +171,12 @@ export function DatasetsDisplay() {
                                 onSave={handleDatasetSave}
                                 isList={viewMode === "list"}
                             />
-                        ) : (
-                            <div className="flex flex-col items-center justify-center py-12 col-span-full">
-                                <p className="text-muted-foreground">No datasets found matching your search criteria.</p>
-                            </div>
-                        )}
-                    </div>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center py-12">
+                            <p className="text-muted-foreground">No datasets found matching your search criteria.</p>
+                        </div>
+                    )}
 
                     {/* Pagination Controls */}
                     {datasetInfos.length > 0 && data && (

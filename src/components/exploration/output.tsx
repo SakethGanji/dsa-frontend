@@ -231,9 +231,9 @@ export default function Output({ onPrevious, source, sourceId }: OutputProps) {
 
         <TabsContent value="profile" className="mt-6">
           <Card className="border-border bg-card shadow-sm">
-            <CardContent className="p-6 min-h-[600px]">
+            <CardContent className="p-6">
               {isLoadingProfile ? (
-                <div className="flex items-center justify-center h-full py-20">
+                <div className="flex items-center justify-center py-20">
                   <div className="flex flex-col items-center">
                     <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
                     <p className="text-lg font-medium text-foreground">
@@ -246,11 +246,12 @@ export default function Output({ onPrevious, source, sourceId }: OutputProps) {
                 </div>
               ) : profileHtml ? (
                 <div 
-                  className="profile-report-container h-full"
+                  className="profile-report-container overflow-visible"
+                  style={{ maxHeight: 'none', height: 'auto' }}
                   dangerouslySetInnerHTML={{ __html: profileHtml }}
                 />
               ) : (
-                <div className="flex flex-col items-center justify-center h-full py-20">
+                <div className="flex flex-col items-center justify-center py-20">
                   <p className="text-lg font-medium text-foreground">
                     No profile data available
                   </p>

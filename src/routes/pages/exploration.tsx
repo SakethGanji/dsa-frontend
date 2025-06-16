@@ -219,7 +219,7 @@ export function ExplorationPage() {
         />
 
         {/* Main Content Area */}
-        <div className="flex-1 overflow-y-auto bg-muted/30 dark:bg-background">
+        <div className="flex-1 bg-muted/30 dark:bg-background">
           <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
             {/* Step 1: Select Dataset */}
             <AnimatePresence>
@@ -704,7 +704,7 @@ export function ExplorationPage() {
                         </div>
                       ) : (exploreMutation.data && typeof exploreMutation.data === 'object' && 'profile' in exploreMutation.data && (exploreMutation.data as { profile?: string }).profile) || viewingPrevious ? (
                         <motion.div
-                          className="border rounded-lg bg-white shadow-sm overflow-hidden"
+                          className="border rounded-lg bg-white shadow-sm"
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: 0.4 }}
@@ -712,7 +712,8 @@ export function ExplorationPage() {
                           <iframe 
                             srcDoc={(exploreMutation.data && typeof exploreMutation.data === 'object' && 'profile' in exploreMutation.data ? (exploreMutation.data as { profile?: string }).profile : null) || sessionStorage.getItem(`profile_${selectedDataset?.id}_${selectedVersion?.id}`) || ''} 
                             title="Dataset Profile" 
-                            className="w-full h-[600px] border-0"
+                            className="w-full min-h-[800px] border-0"
+                            style={{ height: 'auto' }}
                             sandbox="allow-scripts allow-same-origin"
                           />
                         </motion.div>

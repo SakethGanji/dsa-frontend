@@ -174,3 +174,25 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* Allow pandas profiling report to flow naturally */
+.profile-report-container {
+  overflow: visible !important;
+  max-height: none !important;
+  height: auto !important;
+}
+
+.profile-report-container iframe {
+  width: 100% !important;
+  height: auto !important;
+  min-height: 1000px !important;
+  overflow: visible !important;
+}
+
+/* Remove scrollbars from analysis results iframe */
+iframe[title="Dataset Profile"] {
+  width: 100% !important;
+  height: 100vh !important;
+  min-height: 800px !important;
+  overflow: hidden !important;
+}

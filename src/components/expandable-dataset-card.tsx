@@ -6,10 +6,7 @@ import { useOutsideClick } from "@/hooks/use-outside-click"
 
 import {
     Card,
-    CardContent,
     CardDescription,
-    CardFooter,
-    CardHeader,
     CardTitle,
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -83,13 +80,13 @@ interface ActionButtonsProps {
 }
 
 const ActionButtons = ({ datasetId, onView, onDownload, onSave, layoutId }: ActionButtonsProps) => (
-    <motion.div layoutId={layoutId} className="flex gap-2">
+    <motion.div layoutId={layoutId} className="flex gap-0.5">
         {/* Save */}
         <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
             <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 rounded-full bg-transparent hover:bg-destructive/10"
+                className="h-7 w-7 rounded hover:bg-destructive/10"
                 onClick={(e) => {
                     e.stopPropagation()
                     onSave(datasetId)
@@ -105,7 +102,7 @@ const ActionButtons = ({ datasetId, onView, onDownload, onSave, layoutId }: Acti
             <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 rounded-full bg-transparent hover:bg-blue-500/10"
+                className="h-7 w-7 rounded hover:bg-blue-500/10"
                 onClick={(e) => {
                     e.stopPropagation()
                     onDownload(datasetId)
@@ -121,7 +118,7 @@ const ActionButtons = ({ datasetId, onView, onDownload, onSave, layoutId }: Acti
             <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 rounded-full bg-transparent hover:bg-green-500/10"
+                className="h-7 w-7 rounded hover:bg-green-500/10"
                 onClick={(e) => {
                     e.stopPropagation()
                     onView(datasetId)
@@ -153,7 +150,7 @@ const TagsDisplay = ({
     const displayTags = isExpanded ? tags : tags.slice(0, limit)
     
     return (
-        <motion.div className="flex flex-wrap gap-2">
+        <motion.div className="flex flex-wrap gap-1.5">
             {displayTags.map((tag, i) => (
                 <motion.div
                     key={tag}
@@ -166,7 +163,7 @@ const TagsDisplay = ({
                 >
                     <Badge
                         variant="secondary"
-                        className="text-xs px-2 py-0.5 rounded-md font-medium bg-secondary/60 hover:bg-secondary/80 transition-colors"
+                        className="text-[10px] px-1.5 py-0.5 font-medium bg-secondary/80 hover:bg-secondary transition-colors"
                     >
                         {tag}
                     </Badge>
@@ -181,7 +178,7 @@ const TagsDisplay = ({
                         transition: { delay: initialDelayOffset + limit * 0.1 },
                     }}
                 >
-                    <Badge variant="outline" className="text-xs px-2 py-0.5 rounded-md border-dashed">
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 border-dashed">
                         +{tags.length - limit}
                     </Badge>
                 </motion.div>
@@ -198,15 +195,14 @@ interface TypeInfoProps {
 }
 
 const TypeInfo = ({ fileType, fileSize, layoutId }: TypeInfoProps) => (
-    <motion.div layoutId={layoutId} className="flex items-center gap-1.5">
+    <motion.div layoutId={layoutId} className="flex items-center gap-1.5 text-xs">
         <Badge
             variant="outline"
-            className="text-xs font-medium px-2 py-0.5 rounded-full"
+            className="text-[10px] font-medium px-1.5 py-0"
         >
             {fileType.toUpperCase()}
         </Badge>
-        <span className="mx-1">•</span>
-        <span>{fileSize}</span>
+        <span className="text-muted-foreground">{fileSize}</span>
     </motion.div>
 )
 
@@ -221,63 +217,69 @@ interface GridCardViewProps {
 }
 
 const GridCardView = ({ dataset, isExpanded, onView, onDownload, onSave, uniqueId }: GridCardViewProps) => (
-    <>
-        <CardHeader className="p-3 pb-1">
-            <div className="flex justify-between items-start gap-2">
-                <motion.div layoutId={`title-${dataset.id}-${uniqueId}`} className="flex-grow">
-                    <CardTitle className="text-sm line-clamp-2">{dataset.name}</CardTitle>
-                </motion.div>
-                <motion.div layoutId={`badge-${dataset.id}-${uniqueId}`}>
-                    <Badge variant="outline" className="whitespace-nowrap">
-                        v{dataset.version}
-                    </Badge>
+    <div className="flex flex-col h-full">
+        <div className="flex flex-col gap-2 p-3 flex-grow">
+            <div className="flex flex-col space-y-1">
+                <div className="flex justify-between items-start gap-2">
+                    <motion.div layoutId={`title-${dataset.id}-${uniqueId}`} className="flex-1 min-w-0">
+                        <CardTitle className="text-sm font-semibold leading-snug break-all hyphens-auto">
+                            {dataset.name}
+                        </CardTitle>
+                    </motion.div>
+                    <motion.div layoutId={`badge-${dataset.id}-${uniqueId}`} className="flex-shrink-0">
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
+                            v{dataset.version}
+                        </Badge>
+                    </motion.div>
+                </div>
+                <motion.div layoutId={`description-${dataset.id}-${uniqueId}`}>
+                    <CardDescription className={`text-xs leading-relaxed ${isExpanded ? "" : "line-clamp-2"}`}>
+                        {dataset.description}
+                    </CardDescription>
                 </motion.div>
             </div>
-            <motion.div layoutId={`description-${dataset.id}-${uniqueId}`}>
-                <CardDescription className={`line-clamp-3 !mt-1 ${isExpanded ? "!line-clamp-none" : ""}`}>
-                    {dataset.description}
-                </CardDescription>
-            </motion.div>
-        </CardHeader>
 
-        <CardContent className="px-4 pt-2 pb-2 flex-grow space-y-2">
-            <motion.div layoutId={`info-${dataset.id}-${uniqueId}`} className="flex flex-col gap-2">
-                <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <TypeInfo 
-                        fileType={dataset.fileType} 
-                        fileSize={dataset.fileSize} 
-                    />
-
-                    <div className="flex items-center gap-1.5">
-                        <IconCalendar className="h-3.5 w-3.5 text-muted-foreground" stroke={1.5} />
-                        <span>{formatDate(dataset.lastUpdatedTimestamp)}</span>
+            <div className="flex-grow space-y-2">
+                <motion.div layoutId={`info-${dataset.id}-${uniqueId}`} className="flex flex-col gap-2">
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <TypeInfo 
+                            fileType={dataset.fileType} 
+                            fileSize={dataset.fileSize} 
+                        />
+                        <div className="flex items-center gap-1">
+                            <IconCalendar className="h-3 w-3" stroke={1.5} />
+                            <span className="whitespace-nowrap">{formatDate(dataset.lastUpdatedTimestamp)}</span>
+                        </div>
                     </div>
-                </div>
 
-                <div className="flex justify-between items-center flex-wrap gap-2 text-sm text-muted-foreground">
-                    <TagsDisplay 
-                        tags={dataset.tags} 
-                        isExpanded={isExpanded} 
-                    />
-                </div>
-            </motion.div>
-        </CardContent>
-
-        <CardFooter className="px-4 py-2 flex justify-between items-center gap-2">
-            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                <IconUser className="h-3.5 w-3.5 text-muted-foreground" stroke={1.5} />
-                <span className="truncate max-w-[100px] sm:max-w-[150px]">{dataset.uploader}</span>
+                    <div className="flex flex-col gap-1">
+                        <TagsDisplay 
+                            tags={dataset.tags} 
+                            isExpanded={isExpanded}
+                            limit={2}
+                        />
+                    </div>
+                </motion.div>
             </div>
+        </div>
 
-            <ActionButtons
-                datasetId={dataset.id}
-                onView={onView}
-                onDownload={onDownload}
-                onSave={onSave}
-                layoutId={`actions-${dataset.id}-${uniqueId}`}
-            />
-        </CardFooter>
-    </>
+        <div className="px-3 pb-3 pt-0">
+            <div className="pt-2 border-t border-border/20 flex justify-between items-center gap-2">
+                <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0">
+                    <IconUser className="h-3 w-3 flex-shrink-0" stroke={1.5} />
+                    <span className="truncate">{dataset.uploader}</span>
+                </div>
+
+                <ActionButtons
+                    datasetId={dataset.id}
+                    onView={onView}
+                    onDownload={onDownload}
+                    onSave={onSave}
+                    layoutId={`actions-${dataset.id}-${uniqueId}`}
+                />
+            </div>
+        </div>
+    </div>
 )
 
 // List Card View
@@ -291,66 +293,66 @@ interface ListCardViewProps {
 }
 
 const ListCardView = ({ dataset, isExpanded, onView, onDownload, onSave, uniqueId }: ListCardViewProps) => (
-    <div className="flex flex-row items-center w-full px-3 py-3 gap-4">
-        {/* Title and Version (Combined) */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-            <motion.div layoutId={`title-${dataset.id}-${uniqueId}`}>
-                <CardTitle className="text-sm line-clamp-1 whitespace-nowrap">
-                    {dataset.name}
-                </CardTitle>
-            </motion.div>
-            <motion.div layoutId={`badge-${dataset.id}-${uniqueId}`}>
-                <Badge variant="outline" className="whitespace-nowrap">
-                    v{dataset.version}
-                </Badge>
-            </motion.div>
-        </div>
+    <div className="p-2.5 md:p-3">
+        <div className="flex items-start justify-between gap-3">
+            {/* Left side: Title, Description, and Metadata */}
+            <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                    <motion.div layoutId={`title-${dataset.id}-${uniqueId}`}>
+                        <CardTitle className="text-sm font-semibold leading-tight">
+                            {dataset.name}
+                        </CardTitle>
+                    </motion.div>
+                    <motion.div layoutId={`badge-${dataset.id}-${uniqueId}`}>
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
+                            v{dataset.version}
+                        </Badge>
+                    </motion.div>
+                </div>
+                
+                <motion.div layoutId={`description-${dataset.id}-${uniqueId}`}>
+                    <CardDescription className={`text-xs leading-tight mb-1.5 ${isExpanded ? "" : "line-clamp-1"}`}>
+                        {dataset.description}
+                    </CardDescription>
+                </motion.div>
 
-        {/* Description (truncated) - takes available space */}
-        <motion.div layoutId={`description-${dataset.id}-${uniqueId}`} className="flex-grow min-w-0">
-            <CardDescription
-                className={`line-clamp-1 text-xs ${
-                    isExpanded ? "!line-clamp-none" : ""
-                }`}
-            >
-                {dataset.description}
-            </CardDescription>
-        </motion.div>
-
-        {/* TypeInfo - flex-shrink-0 to prevent shrinking */}
-        <motion.div layoutId={`info-${dataset.id}-${uniqueId}`} className="flex-shrink-0">
-            <div className="flex items-center text-xs text-muted-foreground">
-                <TypeInfo
-                    fileType={dataset.fileType}
-                    fileSize={dataset.fileSize}
-                />
+                {/* Metadata in a single compact row */}
+                <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                    <motion.div layoutId={`info-${dataset.id}-${uniqueId}`}>
+                        <TypeInfo
+                            fileType={dataset.fileType}
+                            fileSize={dataset.fileSize}
+                        />
+                    </motion.div>
+                    
+                    <span className="text-muted-foreground">•</span>
+                    
+                    <div className="flex items-center gap-0.5 text-muted-foreground">
+                        <IconCalendar className="h-2.5 w-2.5" stroke={1.5} />
+                        <span>{formatDate(dataset.lastUpdatedTimestamp)}</span>
+                    </div>
+                    
+                    <span className="text-muted-foreground">•</span>
+                    
+                    <div className="flex items-center gap-0.5 text-muted-foreground">
+                        <IconUser className="h-2.5 w-2.5" stroke={1.5} />
+                        <span>{dataset.uploader}</span>
+                    </div>
+                    
+                    <span className="text-muted-foreground">•</span>
+                    
+                    <motion.div layoutId={`tags-${dataset.id}-${uniqueId}`}>
+                        <TagsDisplay
+                            tags={dataset.tags}
+                            isExpanded={isExpanded}
+                            limit={2}
+                            showPlus={!isExpanded}
+                        />
+                    </motion.div>
+                </div>
             </div>
-        </motion.div>
 
-        {/* Tags - flex-shrink-0 and limit for single line */}
-        <motion.div layoutId={`tags-${dataset.id}-${uniqueId}`} className="flex-shrink-0">
-            <TagsDisplay
-                tags={dataset.tags}
-                isExpanded={isExpanded}
-                limit={isExpanded ? dataset.tags.length : 2} // Show 2 tags or all if expanded
-                showPlus={!isExpanded}
-            />
-        </motion.div>
-
-        {/* Metadata (Uploader & Date) - flex-shrink-0 */}
-        <div className="flex items-center gap-3 text-xs text-muted-foreground flex-shrink-0">
-            <div className="flex items-center gap-1.5">
-                <IconUser className="h-3.5 w-3.5 flex-shrink-0" stroke={1.5} />
-                <span className="truncate max-w-[100px]">{dataset.uploader}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-                <IconCalendar className="h-3.5 w-3.5 flex-shrink-0" stroke={1.5} />
-                <span className="whitespace-nowrap">{formatDate(dataset.lastUpdatedTimestamp)}</span>
-            </div>
-        </div>
-
-        {/* Action Buttons - flex-shrink-0 */}
-        <div className="flex-shrink-0">
+            {/* Right side: Actions */}
             <ActionButtons
                 datasetId={dataset.id}
                 onView={onView}
@@ -383,13 +385,13 @@ const DatasetCard = ({
     onSave
 }: DatasetCardProps) => (
     <Card
-        className={`h-full flex ${
-            isListView ? "flex-row" : "flex-col"
-        } gap-0 py-0 ${
+        className={`${
+            isListView ? "w-full" : "h-full flex flex-col"
+        } overflow-hidden ${
             !isExpanded
-                ? "cursor-pointer hover:bg-muted/20 hover:shadow-md dark:hover:bg-muted/10 transition-all duration-200"
+                ? "cursor-pointer hover:bg-accent/50 hover:border-primary/20 dark:hover:border-primary/20 transition-all duration-200"
                 : ""
-        } border-muted/40 bg-gradient-to-b from-card to-card/70`}
+        } border border-border/40 py-0 gap-0 shadow-none bg-card/50`}
     >
         {isListView ? (
             <ListCardView 
@@ -590,7 +592,7 @@ export function ExpandableDatasetCard({
                         layoutId={`card-${dataset.id}-${id}`}
                         key={dataset.id}
                         onClick={handleCardClick}
-                        className="cursor-pointer relative group"
+                        className={`relative ${isList ? "w-full" : "h-full"}`}
                     >
                         <DatasetCard 
                             dataset={dataset}
