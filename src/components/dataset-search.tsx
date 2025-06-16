@@ -174,21 +174,19 @@ export function DatasetSearchBar({ onSelectDataset }: { onSelectDataset?: (datas
 
   return (
     <div className="w-full mx-auto">
-      <div className="relative flex flex-col justify-start items-center min-h-[200px]">
-        <div className="w-full sticky top-0 bg-background z-10 pt-4 pb-1">
-          <label className="text-xs font-medium text-muted-foreground mb-1 block" htmlFor="search">
-            Search Datasets
-          </label>
+      <div className="relative flex flex-col justify-start items-center">
+        <div className="w-full sticky top-0 bg-background z-10">
           <div className="relative">
             <Input
               type="text"
-              placeholder="Search by name or description..."
+              placeholder="Search datasets by name or description..."
               value={query}
               onChange={handleInputChange}
               onFocus={handleFocus}
               onBlur={handleBlur} // Changed to use the new handleBlur
-              className="pl-3 pr-9 py-1.5 h-10 text-sm rounded-lg focus-visible:ring-offset-0"
+              className="pl-10 pr-10 py-2.5 h-11 text-sm rounded-lg focus-visible:ring-2 focus-visible:ring-primary/20 border-border/60 hover:border-border transition-colors"
             />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <div className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4">
               <AnimatePresence mode="wait">
                 {loading ? (
@@ -199,19 +197,23 @@ export function DatasetSearchBar({ onSelectDataset }: { onSelectDataset?: (datas
                     exit={{ scale: 0.5, opacity: 0 }}
                     className="h-4 w-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"
                   />
-                ) : (
-                  <motion.div
-                    key="search"
-                    initial={{ scale: 0.5, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.5, opacity: 0 }}
-                  >
-                    <Search className="w-4 h-4 text-muted-foreground" />
-                  </motion.div>
-                )}
+                ) : null}
               </AnimatePresence>
             </div>
           </div>
+          {!isFocused && !selectedDataset && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="mt-2 flex items-center gap-2 text-xs text-muted-foreground"
+            >
+              <div className="p-1 bg-muted/50 rounded">
+                <Search className="w-3 h-3" />
+              </div>
+              <span>Click to search and select a dataset</span>
+            </motion.div>
+          )}
         </div>
 
         <div className="w-full">
@@ -219,17 +221,17 @@ export function DatasetSearchBar({ onSelectDataset }: { onSelectDataset?: (datas
             {isFocused && !selectedDataset && datasetActions.length > 0 && (
               <motion.div
                 key="dataset-list-container" // Added key
-                className="w-full border rounded-md shadow-lg overflow-hidden bg-popover mt-1"
+                className="w-full border border-border/60 rounded-lg shadow-xl overflow-hidden bg-popover/95 backdrop-blur-sm mt-2"
                 variants={container}
                 initial="hidden"
                 animate="show"
                 exit="exit"
               >
-                <motion.ul className="max-h-[400px] overflow-y-auto">
+                <motion.ul className="max-h-[320px] overflow-y-auto">
                   {datasetActions.map((action) => (
                     <motion.li
                       key={action.id}
-                      className="px-4 py-3 hover:bg-accent cursor-pointer border-b border-border last:border-none"
+                      className="px-4 py-3 hover:bg-accent/70 cursor-pointer border-b border-border/50 last:border-none transition-colors"
                       variants={item}
                       layout
                       onClick={() => {
@@ -238,7 +240,7 @@ export function DatasetSearchBar({ onSelectDataset }: { onSelectDataset?: (datas
                       }}
                     >
                       <div className="flex items-start">
-                        <div className="p-1.5 bg-muted rounded-md mr-3 mt-0.5">
+                        <div className="p-2 bg-gradient-to-br from-primary/10 to-primary/5 rounded-lg mr-3 mt-0.5">
                           {action.icon}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -298,14 +300,19 @@ export function DatasetSearchBar({ onSelectDataset }: { onSelectDataset?: (datas
             {isFocused && !loading && datasetActions.length === 0 && (
               <motion.div
                 key="no-datasets-message-container" // Added key
-                className="w-full border rounded-md shadow-lg overflow-hidden bg-popover mt-1 p-6 text-center"
+                className="w-full border border-border/60 rounded-lg shadow-xl overflow-hidden bg-popover/95 backdrop-blur-sm mt-2 p-8 text-center"
                 variants={container}
                 initial="hidden"
                 animate="show"
                 exit="exit"
               >
-                <div className="text-sm text-muted-foreground">
-                  {query ? "No datasets found matching your search" : "No datasets available"}
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+                    <Search className="w-5 h-5 text-muted-foreground" />
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {query ? "No datasets found matching your search" : "No datasets available"}
+                  </div>
                 </div>
               </motion.div>
             )}

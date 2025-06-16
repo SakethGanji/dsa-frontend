@@ -7,6 +7,7 @@ export interface AuthTokens {
 export interface User {
   sub: string; // username from JWT
   role_id: number; // from JWT
+  role_name: string; // role name from JWT
   exp?: number;    // expiration from JWT
 }
 

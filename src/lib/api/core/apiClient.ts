@@ -45,6 +45,10 @@ export class ApiClient {
     );
   }
 
+  get getBaseURL(): string {
+    return this.baseURL;
+  }
+
   private processParams(params: Record<string, any> = {}): URLSearchParams {
     const searchParams = new URLSearchParams();
     

@@ -79,7 +79,7 @@ export class InterceptorManager {
 export const defaultRequestInterceptors: RequestInterceptor[] = [
   {
     onRequest: async (config, url) => {
-      const requiresAuth = !url.includes('/auth/login') && !url.includes('/auth/refresh');
+      const requiresAuth = !url.includes('/users/token') && !url.includes('/users/register');
       
       if (requiresAuth) {
         try {

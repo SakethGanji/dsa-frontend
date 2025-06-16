@@ -99,7 +99,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarContent>
         <SidebarFooter>
           {/* Bottom part of nav bar (fixed footer) - NavUser kept as is */}
-          {isAuthenticated && !isLoading && user && <NavUser user={{name: user.sub || "User", email: user.role_id ? `Role: ${user.role_id}` : "Role: N/A", avatar: "/avatars/shadcn.jpg"}} />}
+          {isAuthenticated && !isLoading && user && <NavUser user={{name: user.sub || "User", email: user.role_name ? `Role: ${user.role_name}` : "Role: N/A", avatar: "/avatars/shadcn.jpg"}} />}
         </SidebarFooter>
       </Sidebar>
   )

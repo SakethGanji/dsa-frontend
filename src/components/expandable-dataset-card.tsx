@@ -524,7 +524,7 @@ export function ExpandableDatasetCard({
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0, transition: { duration: 0.05 } }}
-                            className="flex absolute top-2 right-2 items-center justify-center bg-card text-card-foreground rounded-full h-6 w-6 shadow-md border border-border transition-colors"
+                            className="flex absolute top-2 right-2 items-center justify-center bg-card text-card-foreground rounded-full h-3 w-6 shadow-md border border-border transition-colors"
                             onClick={closeDetailView}
                         >
                             <CloseIcon />

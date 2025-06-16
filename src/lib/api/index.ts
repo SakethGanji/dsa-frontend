@@ -1,4 +1,4 @@
-import { apiClient } from './client';
+import { apiClient } from './core';
 import type { 
   Token, LoginRequest, UserOut, UserCreate, 
   Dataset, DatasetListParams, DatasetUpdate, DatasetUploadParams,
@@ -7,94 +7,59 @@ import type {
   MultiRoundSamplingRequest, MultiRoundSamplingResponse
 } from './types';
 
-// Re-export client
-export { apiClient, API_BASE_URL } from './client';
+// Re-export client and API base URL
+export { apiClient } from './core';
+export const API_BASE_URL = apiClient.getBaseURL;
 
 // Define API endpoints by category
 export const api = {
   // Auth endpoints
   auth: {
     login: (data: LoginRequest) => 
-      apiClient<Token>({
-        endpoint: '/users/token',
-        method: 'POST',
+      apiClient.post<Token>('/users/token', new URLSearchParams({
+        grant_type: data.grant_type || 'password',
+        username: data.username,
+        password: data.password,
+        scope: data.scope || '',
+        client_id: data.client_id || '',
+        client_secret: data.client_secret || '',
+      }), {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
-        // Convert to URLSearchParams
-        data: new URLSearchParams({
-          grant_type: data.grant_type || 'password',
-          username: data.username,
-          password: data.password,
-          scope: data.scope || '',
-          client_id: data.client_id || '',
-          client_secret: data.client_secret || '',
-        }),
-        requireAuth: false,
       }),
     
     refreshToken: (refreshToken: string) =>
-      apiClient<Token>({
-        endpoint: '/users/token/refresh',
-        method: 'POST',
+      apiClient.post<Token>('/users/token/refresh', undefined, {
         params: { refresh_token: refreshToken },
-        requireAuth: false,
       }),
 
     validateSession: () => 
-      apiClient<UserOut>({
-        endpoint: '/users/me',
-        requireAuth: true,
-      }),
+      apiClient.get<UserOut>('/users/me'),
   },
 
   // User endpoints
   users: {
     register: (userData: UserCreate) =>
-      apiClient<UserOut>({
-        endpoint: '/users/register',
-        method: 'POST',
-        data: userData,
-        requireAuth: false,
-      }),
+      apiClient.post<UserOut>('/users/register', userData),
     
     getAll: () =>
-      apiClient<UserOut[]>({
-        endpoint: '/users/',
-        requireAuth: true,
-      }),
+      apiClient.get<UserOut[]>('/users/'),
     
     create: (userData: UserCreate) =>
-      apiClient<UserOut>({
-        endpoint: '/users/',
-        method: 'POST',
-        data: userData,
-        requireAuth: true,
-      }),
+      apiClient.post<UserOut>('/users/', userData),
   },
 
   // Dataset endpoints
   datasets: {
     getAll: (params?: DatasetListParams) =>
-      apiClient<Dataset[]>({
-        endpoint: '/datasets',
-        params,
-        requireAuth: true,
-      }),
+      apiClient.get<Dataset[]>('/datasets', { params }),
     
     getById: (id: number) =>
-      apiClient<Dataset>({
-        endpoint: `/datasets/${id}`,
-        requireAuth: true,
-      }),
+      apiClient.get<Dataset>(`/datasets/${id}`),
     
     update: (id: number, data: DatasetUpdate) =>
-      apiClient<Dataset>({
-        endpoint: `/datasets/${id}`,
-        method: 'PATCH',
-        data,
-        requireAuth: true,
-      }),
+      apiClient.patch<Dataset>(`/datasets/${id}`, data),
     
     upload: (data: DatasetUploadParams) => {
       const formData = new FormData();
@@ -113,86 +78,53 @@ export const api = {
         formData.append('tags', data.tags);
       }
       
-      return apiClient<DatasetUploadResponse>({
-        endpoint: '/datasets/upload',
-        method: 'POST',
-        data: formData,
-        requireAuth: true,
-      });
+      return apiClient.post<DatasetUploadResponse>('/datasets/upload', formData);
     },
     
     getAllTags: () =>
-      apiClient<Tag[]>({
-        endpoint: '/datasets/tags',
-        requireAuth: true,
-      }),
+      apiClient.get<Tag[]>('/datasets/tags'),
     
     // Dataset versions
     versions: {
       getAll: (datasetId: number) =>
-        apiClient<DatasetVersion[]>({
-          endpoint: `/datasets/${datasetId}/versions`,
-          requireAuth: true,
-        }),
+        apiClient.get<DatasetVersion[]>(`/datasets/${datasetId}/versions`),
       
       getOne: (datasetId: number, versionId: number) =>
-        apiClient<DatasetVersion>({
-          endpoint: `/datasets/${datasetId}/versions/${versionId}`,
-          requireAuth: true,
-        }),
+        apiClient.get<DatasetVersion>(`/datasets/${datasetId}/versions/${versionId}`),
       
       delete: (datasetId: number, versionId: number) =>
-        apiClient<void>({
-          endpoint: `/datasets/${datasetId}/versions/${versionId}`,
-          method: 'DELETE',
-          requireAuth: true,
-        }),
+        apiClient.delete<void>(`/datasets/${datasetId}/versions/${versionId}`),
       
       download: (datasetId: number, versionId: number) =>
-        apiClient<Blob>({
-          endpoint: `/datasets/${datasetId}/versions/${versionId}/download`,
-          requireAuth: true,
-        }),
+        apiClient.get<Blob>(`/datasets/${datasetId}/versions/${versionId}/download`),
       
       listSheets: (datasetId: number, versionId: number) =>
-        apiClient<{ name: string, sheet_index: number, id: number }[]>({
-          endpoint: `/datasets/${datasetId}/versions/${versionId}/sheets`,
-          requireAuth: true,
-        }),
+        apiClient.get<{ name: string, sheet_index: number, id: number }[]>(`/datasets/${datasetId}/versions/${versionId}/sheets`),
       
       getData: (datasetId: number, versionId: number, params?: SheetDataParams) =>
-        apiClient<{ columns: string[], data: any[][] }>({
-          endpoint: `/datasets/${datasetId}/versions/${versionId}/data`,
-          params,
-          requireAuth: true,
-        }),
+        apiClient.get<{ columns: string[], data: any[][] }>(`/datasets/${datasetId}/versions/${versionId}/data`, { params }),
     },
   },
 
   // Data exploration endpoints
   explore: {
     runExplore: (datasetId: number, versionId: number, options: ExploreRequest) =>
-      apiClient<any>({
-        endpoint: `/explore/${datasetId}/${versionId}`,
-        method: 'POST',
-        data: options,
-        requireAuth: true,
-      }),
+      apiClient.post<any>(`/explore/${datasetId}/${versionId}`, options),
   },
   
   // Sampling endpoints
   sampling: {
     execute: async (datasetId: number, versionId: number, request: SamplingRequest, page?: number, pageSize?: number) => {
-      const response = await apiClient<SamplingResult[] | { data: SamplingResult[], pagination?: any }>({
-        endpoint: `/sampling/${datasetId}/${versionId}/execute`,
-        method: 'POST',
-        data: request,
-        params: {
-          ...(page !== undefined && { page }),
-          ...(pageSize !== undefined && { page_size: pageSize })
-        },
-        requireAuth: true,
-      });
+      const response = await apiClient.post<SamplingResult[] | { data: SamplingResult[], pagination?: any }>(
+        `/sampling/${datasetId}/${versionId}/execute`, 
+        request, 
+        {
+          params: {
+            ...(page !== undefined && { page }),
+            ...(pageSize !== undefined && { page_size: pageSize })
+          }
+        }
+      );
       
       // Handle both array response and paginated response
       if (Array.isArray(response)) {
@@ -205,27 +137,24 @@ export const api = {
     },
     
     getColumns: (datasetId: number, versionId: number) =>
-      apiClient<{
+      apiClient.get<{
         columns: string[],
         column_types: Record<string, string>,
         total_rows: number,
         null_counts: Record<string, number>,
         sample_values: Record<string, any[]>
-      }>({
-        endpoint: `/sampling/${datasetId}/${versionId}/columns`,
-        requireAuth: true,
-      }),
+      }>(`/sampling/${datasetId}/${versionId}/columns`),
     
     executeMultiRound: (datasetId: number, versionId: number, request: MultiRoundSamplingRequest, page?: number, pageSize?: number) =>
-      apiClient<MultiRoundSamplingResponse>({
-        endpoint: `/sampling/${datasetId}/${versionId}/multi-round/execute`,
-        method: 'POST',
-        data: request,
-        params: {
-          ...(page !== undefined && { page }),
-          ...(pageSize !== undefined && { page_size: pageSize })
-        },
-        requireAuth: true,
-      }),
+      apiClient.post<MultiRoundSamplingResponse>(
+        `/sampling/${datasetId}/${versionId}/multi-round/execute`,
+        request,
+        {
+          params: {
+            ...(page !== undefined && { page }),
+            ...(pageSize !== undefined && { page_size: pageSize })
+          }
+        }
+      ),
   },
 };

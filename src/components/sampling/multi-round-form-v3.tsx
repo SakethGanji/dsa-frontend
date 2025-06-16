@@ -246,9 +246,9 @@ export function MultiRoundFormV3({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Info Alert */}
-      <Alert>
+      <Alert className="mb-3">
         <Info className="h-4 w-4" />
         <AlertDescription className="text-sm">
           Multi-round sampling executes sequentially. Each round samples from the residual (unsampled rows) of previous rounds, enabling progressive data refinement.
@@ -256,7 +256,7 @@ export function MultiRoundFormV3({
       </Alert>
 
       {/* Rounds List */}
-      <div className="space-y-3">
+      <div className="space-y-2">
         <AnimatePresence mode="popLayout">
           {rounds.map((round, index) => {
             const isExpanded = expandedRounds.has(round.round_number)
@@ -539,13 +539,13 @@ export function MultiRoundFormV3({
       </div>
 
       {/* Residual Export and Execute */}
-      <Card className="border-2">
-        <CardContent className="p-6">
-          <div className="space-y-4">
+      <Card className="border-2 py-0 gap-0">
+        <CardContent className="p-3">
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Package className="w-5 h-5 text-muted-foreground" />
-                <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Package className="w-4 h-4 text-muted-foreground" />
+                <div>
                   <div className="flex items-center gap-2">
                     <Checkbox
                       id="export-residual"
@@ -559,7 +559,7 @@ export function MultiRoundFormV3({
                       Export Residual Dataset
                     </Label>
                   </div>
-                  <CardDescription className="text-xs">
+                  <CardDescription className="text-xs ml-6">
                     Save remaining unsampled rows as a separate dataset
                   </CardDescription>
                 </div>
@@ -578,12 +578,12 @@ export function MultiRoundFormV3({
               )}
             </div>
 
-            <Separator />
+            <Separator className="my-2" />
 
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium">Ready to execute?</p>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs text-muted-foreground">
                   {rounds.length} round{rounds.length > 1 ? 's' : ''} configured
                   {exportResidual && ' + residual export'}
                 </p>
@@ -591,8 +591,8 @@ export function MultiRoundFormV3({
               <Button 
                 onClick={handleSubmit} 
                 disabled={isLoading || rounds.length === 0}
-                size="lg"
-                className="min-w-[180px]"
+                size="default"
+                className="min-w-[160px]"
               >
                 {isLoading ? (
                   <>

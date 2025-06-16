@@ -209,7 +209,7 @@ export function ExplorationPage() {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] -mx-4 lg:-mx-6 -mt-0 lg:-mt-0">
-      <div className="w-full h-full flex flex-col bg-background">
+      <div className="w-full h-full flex flex-col bg-gradient-to-b from-background to-muted/20">
         <StepNavigation
           steps={stepInfo}
           currentStep={currentStep}
@@ -219,15 +219,19 @@ export function ExplorationPage() {
         />
 
         {/* Main Content Area */}
-        <div className="flex-1 bg-muted/30 dark:bg-background">
-          <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+        <div className="flex-1">
+          <div className="p-3 lg:p-4 space-y-3 lg:space-y-4 max-w-7xl mx-auto">
             {/* Step 1: Select Dataset */}
-            <AnimatePresence>
+            <AnimatePresence mode="wait">
               {shouldShowStep(1) && (
                 <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5 }}
+                  initial={{ opacity: 0, y: 20, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.98 }}
+                  transition={{ 
+                    duration: 0.4,
+                    ease: [0.4, 0.0, 0.2, 1]
+                  }}
                   layout
                 >
                   <DatasetSelector
@@ -241,12 +245,17 @@ export function ExplorationPage() {
             </AnimatePresence>
 
             {/* Step 2: Select Version */}
-            <AnimatePresence>
+            <AnimatePresence mode="wait">
               {shouldShowStep(2) && (
                 <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.1 }}
+                  initial={{ opacity: 0, y: 20, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.98 }}
+                  transition={{ 
+                    duration: 0.4,
+                    delay: 0.1,
+                    ease: [0.4, 0.0, 0.2, 1]
+                  }}
                   layout
                 >
                   <VersionGrid
@@ -272,8 +281,8 @@ export function ExplorationPage() {
                   transition={{ duration: 0.3 }}
                 >
                   <Card className="border-primary/30 bg-primary/5 dark:bg-primary/10">
-                    <CardContent className="p-5">
-                      <div className="flex items-start gap-4">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
                         <div className="w-12 h-12 bg-primary/10 dark:bg-primary/20 rounded-xl flex items-center justify-center flex-shrink-0">
                           <History className="w-6 h-6 text-primary" />
                         </div>
@@ -393,32 +402,34 @@ export function ExplorationPage() {
                   layout
                 >
                   <Card
-                    className={`transition-all duration-300 ${
+                    className={`transition-all duration-300 overflow-hidden ${
                       currentStep === 3
-                        ? "border-primary/50 shadow-lg dark:shadow-primary/10 bg-card"
+                        ? "border-primary/40 shadow-xl bg-gradient-to-br from-card via-card to-primary/5 ring-1 ring-primary/20"
                         : currentStep > 3
-                          ? "bg-card/50 border-border/50 opacity-75"
+                          ? "bg-card/70 border-border/50 opacity-80"
                           : ""
                     }`}
                   >
-                    <CardHeader className="pb-4">
+                    <CardHeader className="pb-2 bg-gradient-to-r from-transparent via-primary/5 to-transparent">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div
+                        <div className="flex items-center gap-2">
+                          <motion.div
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
                             className={`w-12 h-12 rounded-xl flex items-center justify-center ${
                               currentStep > 3
-                                ? "bg-primary/10 text-primary dark:bg-primary/20"
+                                ? "bg-gradient-to-br from-primary/20 to-primary/10 text-primary"
                                 : currentStep === 3
-                                  ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                                  ? "bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-lg shadow-primary/30"
                                   : "bg-muted text-muted-foreground"
                             }`}
                           >
                             {currentStep > 3 ? <Check className="w-6 h-6" /> : <Search className="w-6 h-6" />}
-                          </div>
+                          </motion.div>
                           <div>
                             <CardTitle className="text-xl font-semibold">Data Preview</CardTitle>
-                            <CardDescription className="text-sm mt-1">
-                              Preview your dataset before analysis
+                            <CardDescription className="text-sm mt-0.5">
+                              Explore your dataset structure and content
                             </CardDescription>
                           </div>
                         </div>
@@ -457,25 +468,32 @@ export function ExplorationPage() {
                         {tableData?.headers ? (
                           <>
                             {/* Column Stats Bar */}
-                            <div className="px-6 py-4 bg-accent/50 dark:bg-accent/20 border-b">
-                              <div className="flex items-center gap-3 overflow-x-auto">
+                            <div className="px-4 py-3 bg-gradient-to-r from-muted/30 via-muted/50 to-muted/30 border-b border-border/50">
+                              <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide">
                                 {tableData.headers.slice(0, 6).map((header: string, idx: number) => (
                                   <motion.div
                                     key={header}
-                                    initial={{ opacity: 0, scale: 0.8 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    transition={{ delay: 0.3 + idx * 0.05 }}
-                                    className="flex items-center gap-2 px-3 py-1.5 bg-card rounded-lg shadow-sm border min-w-fit"
+                                    initial={{ opacity: 0, scale: 0.8, y: 10 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    transition={{ delay: 0.3 + idx * 0.05, type: "spring", stiffness: 500, damping: 30 }}
+                                    whileHover={{ scale: 1.05, y: -2 }}
+                                    className="flex items-center gap-2 px-2.5 py-1.5 bg-gradient-to-br from-card to-card/80 rounded-lg shadow-md hover:shadow-lg border border-border/60 min-w-fit transition-all cursor-default"
                                   >
-                                    <div className="w-2 h-2 rounded-full bg-primary" />
-                                    <span className="text-xs font-medium">{header}</span>
-                                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">Text</Badge>
+                                    <div className="w-2 h-2 rounded-full bg-gradient-to-r from-primary to-primary/60" />
+                                    <span className="text-xs font-medium text-foreground/90">{header}</span>
+                                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-primary/10 border-primary/20">Text</Badge>
                                   </motion.div>
                                 ))}
                                 {tableData.headers.length > 6 && (
-                                  <Badge variant="outline" className="text-xs px-2 py-1">
-                                    +{tableData.headers.length - 6} more
-                                  </Badge>
+                                  <motion.div
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    transition={{ delay: 0.6 }}
+                                  >
+                                    <Badge variant="outline" className="text-xs px-2.5 py-1.5 border-dashed">
+                                      +{tableData.headers.length - 6} more
+                                    </Badge>
+                                  </motion.div>
                                 )}
                               </div>
                             </div>
@@ -511,12 +529,23 @@ export function ExplorationPage() {
                             </div>
                           </>
                         ) : (
-                          <div className="p-16 text-center">
+                          <div className="p-12 text-center">
                             <motion.div
-                              animate={{ rotate: 360 }}
-                              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                              className="w-12 h-12 border-4 border-muted border-t-primary rounded-full mx-auto mb-4"
-                            />
+                              className="relative w-16 h-16 mx-auto mb-4"
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                            >
+                              <motion.div
+                                animate={{ rotate: 360 }}
+                                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                                className="absolute inset-0 border-4 border-primary/20 rounded-full"
+                              />
+                              <motion.div
+                                animate={{ rotate: -360 }}
+                                transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                                className="absolute inset-2 border-4 border-t-primary border-r-primary/50 border-b-transparent border-l-transparent rounded-full"
+                              />
+                            </motion.div>
                             <p className="text-sm font-medium text-muted-foreground">Loading preview data...</p>
                           </div>
                         )}
@@ -537,38 +566,40 @@ export function ExplorationPage() {
                   layout
                 >
                   <Card
-                    className={`transition-all duration-300 ${
+                    className={`transition-all duration-300 overflow-hidden ${
                       currentStep === 4
-                        ? "border-primary/50 shadow-lg dark:shadow-primary/10 bg-card"
+                        ? "border-primary/40 shadow-xl bg-gradient-to-br from-card via-card to-primary/5 ring-1 ring-primary/20"
                         : currentStep > 4
-                          ? "bg-card/50 border-border/50 opacity-75"
+                          ? "bg-card/70 border-border/50 opacity-80"
                           : ""
                     }`}
                   >
-                    <CardHeader className="pb-4">
-                      <div className="flex items-center gap-3">
-                        <div
+                    <CardHeader className="pb-2 bg-gradient-to-r from-transparent via-primary/5 to-transparent">
+                      <div className="flex items-center gap-2">
+                        <motion.div
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
                           className={`w-12 h-12 rounded-xl flex items-center justify-center ${
                             currentStep > 4
-                              ? "bg-primary/10 text-primary dark:bg-primary/20"
+                              ? "bg-gradient-to-br from-primary/20 to-primary/10 text-primary"
                               : currentStep === 4
-                                ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                                ? "bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-lg shadow-primary/30"
                                 : "bg-muted text-muted-foreground"
                           }`}
                         >
                           {currentStep > 4 ? <Check className="w-6 h-6" /> : <BarChart3 className="w-6 h-6" />}
-                        </div>
+                        </motion.div>
                         <div>
                           <CardTitle className="text-xl font-semibold">Analysis Options</CardTitle>
-                          <CardDescription className="text-sm mt-1">
-                            Select how you want to analyze your data
+                          <CardDescription className="text-sm mt-0.5">
+                            Choose your preferred analysis method
                           </CardDescription>
                         </div>
                       </div>
                     </CardHeader>
 
-                    <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <CardContent className="pt-0">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                         {analysisOptions.map((option, index) => {
                           const Icon = option.icon
                           const isSelected = selectedAnalysis === option.id
@@ -586,25 +617,29 @@ export function ExplorationPage() {
                               <Card
                                 className={`h-full transition-all duration-300 relative overflow-hidden group ${
                                   isSelected && isCompleted
-                                    ? "border-primary/30 bg-primary/5 dark:bg-primary/10 shadow-md"
+                                    ? "border-primary/40 bg-gradient-to-br from-primary/10 to-primary/5 shadow-lg ring-1 ring-primary/20"
                                     : isSelected
-                                      ? "border-primary bg-primary/10 dark:bg-primary/20 shadow-lg shadow-primary/10"
+                                      ? "border-primary bg-gradient-to-br from-primary/20 to-primary/10 shadow-xl shadow-primary/20 ring-2 ring-primary/30"
                                       : isCompleted
-                                        ? "opacity-50 cursor-default bg-card/50"
-                                        : "cursor-pointer hover:shadow-md hover:border-primary/30 hover:bg-accent/50 dark:hover:bg-accent/20 bg-card border-border"
+                                        ? "opacity-60 cursor-default bg-card/60 border-border/40"
+                                        : "cursor-pointer hover:shadow-lg hover:border-primary/40 hover:bg-gradient-to-br hover:from-card hover:to-primary/5 bg-card border-border/60"
                                 }`}
                                 onClick={!isCompleted && option.id === "pandas" ? () => handleAnalysisSelect(option.id) : undefined}
                               >
-                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 dark:via-white/5 to-transparent opacity-0 group-hover:opacity-100 -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-all duration-700" />
-                                <CardContent className="p-5 relative">
-                                  <div className="flex items-start gap-4">
-                                    <div className={`w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 shadow-md ${
-                                      option.id === 'pandas' ? 'bg-primary text-primary-foreground' :
-                                      option.id === 'sweetviz' ? 'bg-purple-600 text-white' :
-                                      'bg-orange-600 text-white'
-                                    }`}>
+                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/10 to-transparent opacity-0 group-hover:opacity-100 -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-all duration-1000" />
+                                <CardContent className="p-4 relative">
+                                  <div className="flex items-start gap-3">
+                                    <motion.div 
+                                      whileHover={{ scale: 1.1, rotate: 5 }}
+                                      whileTap={{ scale: 0.9 }}
+                                      className={`w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg ${
+                                        option.id === 'pandas' ? 'bg-gradient-to-br from-primary to-primary/80 text-primary-foreground' :
+                                        option.id === 'sweetviz' ? 'bg-gradient-to-br from-purple-600 to-purple-700 text-white' :
+                                        'bg-gradient-to-br from-orange-600 to-orange-700 text-white'
+                                      }`}
+                                    >
                                       <Icon className="w-7 h-7" />
-                                    </div>
+                                    </motion.div>
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-start justify-between mb-2">
                                         <h3 className="font-semibold text-base">{option.name}</h3>

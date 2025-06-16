@@ -201,7 +201,7 @@ export function SamplingPage() {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] -mx-4 lg:-mx-6 -mt-0 lg:-mt-0">
-      <div className="w-full h-full flex flex-col bg-background">
+      <div className="w-full h-full flex flex-col bg-gradient-to-b from-background to-muted/20">
         <StepNavigation
           steps={stepInfo}
           currentStep={currentStep}
@@ -211,15 +211,19 @@ export function SamplingPage() {
         />
 
         {/* Main Content Area */}
-        <div className="flex-1 overflow-y-auto bg-muted/30 dark:bg-background">
-          <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-3 lg:p-4 space-y-3 lg:space-y-4 max-w-7xl mx-auto">
             {/* Step 1: Select Dataset */}
-            <AnimatePresence>
+            <AnimatePresence mode="wait">
               {shouldShowStep(1) && (
                 <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5 }}
+                  initial={{ opacity: 0, y: 20, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.98 }}
+                  transition={{ 
+                    duration: 0.4,
+                    ease: [0.4, 0.0, 0.2, 1]
+                  }}
                   layout
                 >
                   <DatasetSelector
@@ -233,12 +237,17 @@ export function SamplingPage() {
             </AnimatePresence>
 
             {/* Step 2: Select Version */}
-            <AnimatePresence>
+            <AnimatePresence mode="wait">
               {shouldShowStep(2) && (
                 <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.1 }}
+                  initial={{ opacity: 0, y: 20, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.98 }}
+                  transition={{ 
+                    duration: 0.4,
+                    delay: 0.1,
+                    ease: [0.4, 0.0, 0.2, 1]
+                  }}
                   layout
                 >
                   <VersionGrid
@@ -255,46 +264,53 @@ export function SamplingPage() {
             </AnimatePresence>
 
             {/* Step 3: Configure Multi-Round Sampling */}
-            <AnimatePresence>
+            <AnimatePresence mode="wait">
               {shouldShowStep(3) && selectedDataset && selectedVersion && (
                 <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.2 }}
+                  initial={{ opacity: 0, y: 20, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.98 }}
+                  transition={{ 
+                    duration: 0.4,
+                    delay: 0.2,
+                    ease: [0.4, 0.0, 0.2, 1]
+                  }}
                   layout
                 >
                   <Card
-                    className={`transition-all duration-300 ${
+                    className={`transition-all duration-300 overflow-hidden ${
                       currentStep === 3
-                        ? "border-primary/50 shadow-lg dark:shadow-primary/10 bg-card"
+                        ? "border-primary/40 shadow-xl bg-gradient-to-br from-card via-card to-primary/5 ring-1 ring-primary/20"
                         : currentStep > 3
-                          ? "bg-card/50 border-border/50 opacity-75"
+                          ? "bg-card/70 border-border/50 opacity-80"
                           : ""
                     }`}
                   >
-                    <CardHeader className="pb-4">
-                      <div className="flex items-center gap-3">
-                        <div
+                    <CardHeader className="pb-2 bg-gradient-to-r from-transparent via-primary/5 to-transparent">
+                      <div className="flex items-center gap-2">
+                        <motion.div
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
                           className={`w-12 h-12 rounded-xl flex items-center justify-center ${
                             currentStep > 3
-                              ? "bg-primary/10 text-primary dark:bg-primary/20"
+                              ? "bg-gradient-to-br from-primary/20 to-primary/10 text-primary"
                               : currentStep === 3
-                                ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                                ? "bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-lg shadow-primary/30"
                                 : "bg-muted text-muted-foreground"
                           }`}
                         >
                           {currentStep > 3 ? <Check className="w-6 h-6" /> : <FlaskConical className="w-6 h-6" />}
-                        </div>
+                        </motion.div>
                         <div>
                           <CardTitle className="text-xl font-semibold">Sampling Configuration</CardTitle>
-                          <CardDescription className="text-sm mt-1">
+                          <CardDescription className="text-sm mt-0.5">
                             Define your sampling strategy with multiple rounds
                           </CardDescription>
                         </div>
                       </div>
                     </CardHeader>
 
-                    <CardContent>
+                    <CardContent className="pt-0">
                       <MultiRoundFormV3
                         datasetId={selectedDataset.id}
                         versionId={selectedVersion.id}
@@ -309,21 +325,30 @@ export function SamplingPage() {
             </AnimatePresence>
 
             {/* Step 4: View Results */}
-            <AnimatePresence>
+            <AnimatePresence mode="wait">
               {shouldShowStep(4) && samplingResponse && (
                 <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.3 }}
+                  initial={{ opacity: 0, y: 20, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.98 }}
+                  transition={{ 
+                    duration: 0.4,
+                    delay: 0.3,
+                    ease: [0.4, 0.0, 0.2, 1]
+                  }}
                   layout
                 >
-                  <Card className="border-primary/50 shadow-lg dark:shadow-primary/10 bg-card">
-                    <CardHeader className="pb-4">
+                  <Card className="border-primary/40 shadow-xl bg-gradient-to-br from-card via-card to-primary/5 ring-1 ring-primary/20 overflow-hidden">
+                    <CardHeader className="pb-2 bg-gradient-to-r from-transparent via-primary/5 to-transparent">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-primary text-primary-foreground shadow-md shadow-primary/20">
+                        <div className="flex items-center gap-2">
+                          <motion.div
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            className="w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-lg shadow-primary/30"
+                          >
                             <Table className="w-6 h-6" />
-                          </div>
+                          </motion.div>
                           <div>
                             <CardTitle className="text-xl font-semibold">
                               Multi-Round Sampling Results
@@ -348,7 +373,7 @@ export function SamplingPage() {
                       </div>
                     </CardHeader>
 
-                    <CardContent className="p-6">
+                    <CardContent className="pt-0 p-4">
                       <MultiRoundResults
                         results={samplingResponse}
                         isLoading={samplingMutation.isPending || isLoadingPage}
