@@ -212,7 +212,7 @@ export function SamplingPage() {
 
         {/* Main Content Area */}
         <div className="flex-1 overflow-y-auto">
-          <div className="p-3 lg:p-4 space-y-3 lg:space-y-4 max-w-7xl mx-auto">
+          <div className="p-3 lg:p-4 space-y-3 lg:space-y-4">
             {/* Step 1: Select Dataset */}
             <AnimatePresence mode="wait">
               {shouldShowStep(1) && (

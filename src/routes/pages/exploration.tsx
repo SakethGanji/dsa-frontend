@@ -44,16 +44,10 @@ const analysisOptions = [
     icon: BarChart3,
   },
   {
-    id: "sweetviz",
-    name: "SweetViz Analysis",
-    description: "Beautiful visualizations and data comparisons",
+    id: "perspective",
+    name: "Perspective Analysis",
+    description: "Advanced data insights and pattern recognition",
     icon: Sparkles,
-  },
-  {
-    id: "custom",
-    name: "Custom Analysis",
-    description: "Build your own analysis with custom parameters",
-    icon: FileText,
   },
 ]
 
@@ -144,22 +138,29 @@ export function ExplorationPage() {
 
   const handleAnalysisSelect = (analysisId: string) => {
     setSelectedAnalysis(analysisId)
-    setIsAnalyzing(true)
     
-    if (selectedDataset && selectedVersion) {
-      exploreMutation.mutate({
-        datasetId: selectedDataset.id,
-        versionId: selectedVersion.id,
-        options: createProfileRequest('html')
-      }, {
-        onSuccess: () => {
-          setIsAnalyzing(false)
-          setCurrentStep(5)
-        },
-        onError: () => {
-          setIsAnalyzing(false)
-        }
-      })
+    if (analysisId === 'perspective') {
+      // For perspective analysis, go directly to step 5 without API call
+      setCurrentStep(5)
+    } else if (analysisId === 'pandas') {
+      // For pandas profiling, make the API call
+      setIsAnalyzing(true)
+      
+      if (selectedDataset && selectedVersion) {
+        exploreMutation.mutate({
+          datasetId: selectedDataset.id,
+          versionId: selectedVersion.id,
+          options: createProfileRequest('html')
+        }, {
+          onSuccess: () => {
+            setIsAnalyzing(false)
+            setCurrentStep(5)
+          },
+          onError: () => {
+            setIsAnalyzing(false)
+          }
+        })
+      }
     }
   }
 
@@ -220,7 +221,7 @@ export function ExplorationPage() {
 
         {/* Main Content Area */}
         <div className="flex-1">
-          <div className="p-3 lg:p-4 space-y-3 lg:space-y-4 max-w-7xl mx-auto">
+          <div className="p-3 lg:p-4 space-y-3 lg:space-y-4">
             {/* Step 1: Select Dataset */}
             <AnimatePresence mode="wait">
               {shouldShowStep(1) && (
@@ -624,7 +625,7 @@ export function ExplorationPage() {
                                         ? "opacity-60 cursor-default bg-card/60 border-border/40"
                                         : "cursor-pointer hover:shadow-lg hover:border-primary/40 hover:bg-gradient-to-br hover:from-card hover:to-primary/5 bg-card border-border/60"
                                 }`}
-                                onClick={!isCompleted && option.id === "pandas" ? () => handleAnalysisSelect(option.id) : undefined}
+                                onClick={!isCompleted ? () => handleAnalysisSelect(option.id) : undefined}
                               >
                                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/10 to-transparent opacity-0 group-hover:opacity-100 -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-all duration-1000" />
                                 <CardContent className="p-4 relative">
@@ -634,8 +635,7 @@ export function ExplorationPage() {
                                       whileTap={{ scale: 0.9 }}
                                       className={`w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg ${
                                         option.id === 'pandas' ? 'bg-gradient-to-br from-primary to-primary/80 text-primary-foreground' :
-                                        option.id === 'sweetviz' ? 'bg-gradient-to-br from-purple-600 to-purple-700 text-white' :
-                                        'bg-gradient-to-br from-orange-600 to-orange-700 text-white'
+                                        'bg-gradient-to-br from-purple-600 to-purple-700 text-white'
                                       }`}
                                     >
                                       <Icon className="w-7 h-7" />
@@ -653,7 +653,7 @@ export function ExplorationPage() {
                                             <Check className="w-3.5 h-3.5 text-primary-foreground" />
                                           </motion.div>
                                         )}
-                                        {!isCompleted && option.id === "pandas" && (
+                                        {!isCompleted && (
                                           <motion.div
                                             animate={{ scale: [1, 1.1, 1] }}
                                             transition={{ repeat: Infinity, duration: 2 }}
@@ -661,9 +661,6 @@ export function ExplorationPage() {
                                           >
                                             <Play className="w-5 h-5" />
                                           </motion.div>
-                                        )}
-                                        {!isCompleted && option.id !== "pandas" && (
-                                          <Badge variant="outline" className="text-xs">Coming Soon</Badge>
                                         )}
                                       </div>
                                       <p className="text-sm text-muted-foreground leading-relaxed mb-3">{option.description}</p>
@@ -732,109 +729,115 @@ export function ExplorationPage() {
                     </CardHeader>
 
                     <CardContent>
-                      {exploreMutation.isPending ? (
+                      {selectedAnalysis === 'perspective' ? (
                         <div className="p-8 text-center">
-                          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent motion-reduce:animate-[spin_1.5s_linear_infinite] mb-4"></div>
-                          <p className="text-gray-500">Generating analysis...</p>
+                          <p className="text-gray-500">In progress</p>
                         </div>
-                      ) : (exploreMutation.data && typeof exploreMutation.data === 'object' && 'profile' in exploreMutation.data && (exploreMutation.data as { profile?: string }).profile) || viewingPrevious ? (
-                        <motion.div
-                          className="border rounded-lg bg-white shadow-sm"
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.4 }}
-                        >
-                          <iframe 
-                            srcDoc={(exploreMutation.data && typeof exploreMutation.data === 'object' && 'profile' in exploreMutation.data ? (exploreMutation.data as { profile?: string }).profile : null) || sessionStorage.getItem(`profile_${selectedDataset?.id}_${selectedVersion?.id}`) || ''} 
-                            title="Dataset Profile" 
-                            className="w-full min-h-[800px] border-0"
-                            style={{ height: 'auto' }}
-                            sandbox="allow-scripts allow-same-origin"
-                          />
-                        </motion.div>
                       ) : (
-                        <motion.div
-                          className="border rounded-lg p-6 bg-white shadow-sm"
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.4 }}
-                        >
-                          <div className="space-y-6">
-                            <motion.h3
-                              className="text-lg font-semibold"
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              transition={{ delay: 0.6 }}
-                            >
-                              Dataset Overview
-                            </motion.h3>
-
-                            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                              {[
-                                { label: "Total Rows", value: tableData?.total_count || "N/A", gradient: "from-blue-500 to-indigo-600", bgGradient: "from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30", icon: Database },
-                                { label: "Columns", value: tableData?.headers?.length || 0, gradient: "from-green-500 to-emerald-600", bgGradient: "from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30", icon: GitBranch },
-                                { label: "Data Quality", value: "98.5%", gradient: "from-purple-500 to-pink-600", bgGradient: "from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30", icon: Sparkles },
-                                { label: "File Size", value: formatByteSize(selectedVersion?.overlay_file_size || selectedVersion?.materialized_file_size || selectedVersion?.file_size), gradient: "from-orange-500 to-red-600", bgGradient: "from-orange-50 to-red-50 dark:from-orange-950/30 dark:to-red-950/30", icon: FileText },
-                              ].map((stat, index) => {
-                                const Icon = stat.icon
-                                return (
-                                  <motion.div
-                                    key={stat.label}
-                                    className={`relative overflow-hidden rounded-xl bg-gradient-to-br ${stat.bgGradient} border border-slate-200 dark:border-slate-700 shadow-lg hover:shadow-xl transition-shadow duration-300`}
-                                    initial={{ opacity: 0, scale: 0.8, y: 20 }}
-                                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                                    transition={{
-                                      delay: 0.8 + index * 0.1,
-                                      type: "spring",
-                                      stiffness: 500,
-                                      damping: 30,
-                                    }}
-                                    whileHover={{ scale: 1.02 }}
-                                  >
-                                    <div className="absolute top-0 right-0 w-20 h-20 opacity-10">
-                                      <Icon className="w-full h-full" />
-                                    </div>
-                                    <div className="relative p-4">
-                                      <div className={`text-2xl font-bold bg-gradient-to-r ${stat.gradient} bg-clip-text text-transparent mb-1`}>{stat.value}</div>
-                                      <div className="text-xs font-medium text-slate-600 dark:text-slate-400">{stat.label}</div>
-                                    </div>
-                                  </motion.div>
-                                )
-                              })}
-                            </div>
-
-                            <motion.div
-                              className="mt-6"
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ delay: 1.2 }}
-                            >
-                              <h4 className="font-medium mb-3 flex items-center gap-2">
-                                <Sparkles className="w-4 h-4 text-yellow-500" />
-                                Key Insights
-                              </h4>
-                              <ul className="space-y-2 text-sm text-muted-foreground">
-                                {[
-                                  "Dataset successfully loaded and ready for analysis",
-                                  "All columns have been properly identified",
-                                  "Data types have been automatically detected",
-                                  "No critical data quality issues found",
-                                ].map((insight, index) => (
-                                  <motion.li
-                                    key={index}
-                                    initial={{ opacity: 0, x: -10 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: 1.4 + index * 0.1 }}
-                                    className="flex items-start gap-2"
-                                  >
-                                    <ChevronRight className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                                    {insight}
-                                  </motion.li>
-                                ))}
-                              </ul>
-                            </motion.div>
+                        exploreMutation.isPending ? (
+                          <div className="p-8 text-center">
+                            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent motion-reduce:animate-[spin_1.5s_linear_infinite] mb-4"></div>
+                            <p className="text-gray-500">Generating analysis...</p>
                           </div>
-                        </motion.div>
+                        ) : (exploreMutation.data && typeof exploreMutation.data === 'object' && 'profile' in exploreMutation.data && (exploreMutation.data as { profile?: string }).profile) || viewingPrevious ? (
+                          <motion.div
+                            className="border rounded-lg bg-white shadow-sm"
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.4 }}
+                          >
+                            <iframe 
+                              srcDoc={(exploreMutation.data && typeof exploreMutation.data === 'object' && 'profile' in exploreMutation.data ? (exploreMutation.data as { profile?: string }).profile : null) || sessionStorage.getItem(`profile_${selectedDataset?.id}_${selectedVersion?.id}`) || ''} 
+                              title="Dataset Profile" 
+                              className="w-full min-h-[800px] border-0"
+                              style={{ height: 'auto' }}
+                              sandbox="allow-scripts allow-same-origin"
+                            />
+                          </motion.div>
+                        ) : (
+                          <motion.div
+                            className="border rounded-lg p-6 bg-white shadow-sm"
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.4 }}
+                          >
+                            <div className="space-y-6">
+                              <motion.h3
+                                className="text-lg font-semibold"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ delay: 0.6 }}
+                              >
+                                Dataset Overview
+                              </motion.h3>
+
+                              <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                                {[
+                                  { label: "Total Rows", value: tableData?.total_count || "N/A", gradient: "from-blue-500 to-indigo-600", bgGradient: "from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30", icon: Database },
+                                  { label: "Columns", value: tableData?.headers?.length || 0, gradient: "from-green-500 to-emerald-600", bgGradient: "from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30", icon: GitBranch },
+                                  { label: "Data Quality", value: "98.5%", gradient: "from-purple-500 to-pink-600", bgGradient: "from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30", icon: Sparkles },
+                                  { label: "File Size", value: formatByteSize(selectedVersion?.overlay_file_size || selectedVersion?.materialized_file_size || selectedVersion?.file_size), gradient: "from-orange-500 to-red-600", bgGradient: "from-orange-50 to-red-50 dark:from-orange-950/30 dark:to-red-950/30", icon: FileText },
+                                ].map((stat, index) => {
+                                  const Icon = stat.icon
+                                  return (
+                                    <motion.div
+                                      key={stat.label}
+                                      className={`relative overflow-hidden rounded-xl bg-gradient-to-br ${stat.bgGradient} border border-slate-200 dark:border-slate-700 shadow-lg hover:shadow-xl transition-shadow duration-300`}
+                                      initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                                      transition={{
+                                        delay: 0.8 + index * 0.1,
+                                        type: "spring",
+                                        stiffness: 500,
+                                        damping: 30,
+                                      }}
+                                      whileHover={{ scale: 1.02 }}
+                                    >
+                                      <div className="absolute top-0 right-0 w-20 h-20 opacity-10">
+                                        <Icon className="w-full h-full" />
+                                      </div>
+                                      <div className="relative p-4">
+                                        <div className={`text-2xl font-bold bg-gradient-to-r ${stat.gradient} bg-clip-text text-transparent mb-1`}>{stat.value}</div>
+                                        <div className="text-xs font-medium text-slate-600 dark:text-slate-400">{stat.label}</div>
+                                      </div>
+                                    </motion.div>
+                                  )
+                                })}
+                              </div>
+
+                              <motion.div
+                                className="mt-6"
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 1.2 }}
+                              >
+                                <h4 className="font-medium mb-3 flex items-center gap-2">
+                                  <Sparkles className="w-4 h-4 text-yellow-500" />
+                                  Key Insights
+                                </h4>
+                                <ul className="space-y-2 text-sm text-muted-foreground">
+                                  {[
+                                    "Dataset successfully loaded and ready for analysis",
+                                    "All columns have been properly identified",
+                                    "Data types have been automatically detected",
+                                    "No critical data quality issues found",
+                                  ].map((insight, index) => (
+                                    <motion.li
+                                      key={index}
+                                      initial={{ opacity: 0, x: -10 }}
+                                      animate={{ opacity: 1, x: 0 }}
+                                      transition={{ delay: 1.4 + index * 0.1 }}
+                                      className="flex items-start gap-2"
+                                    >
+                                      <ChevronRight className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                                      {insight}
+                                    </motion.li>
+                                  ))}
+                                </ul>
+                              </motion.div>
+                            </div>
+                          </motion.div>
+                        )
                       )}
                     </CardContent>
                   </Card>
@@ -846,7 +849,7 @@ export function ExplorationPage() {
       </div>
 
       <LoadingOverlay
-        isLoading={isAnalyzing}
+        isLoading={isAnalyzing && selectedAnalysis === 'pandas'}
         title="Analyzing Data"
         description={`Running ${analysisOptions.find((a) => a.id === selectedAnalysis)?.name || 'analysis'}...`}
       />
