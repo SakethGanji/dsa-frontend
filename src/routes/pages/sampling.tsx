@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { motion, AnimatePresence } from "framer-motion"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, useEffect, useCallback } from "react"
+import { motion } from "framer-motion"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
   Check,
@@ -13,7 +13,13 @@ import { useDatasetVersions } from "@/hooks"
 import { useMultiRoundSampling } from "@/hooks/use-multi-round-sampling"
 import { MultiRoundFormV3 } from "@/components/sampling/multi-round-form-v3"
 import { MultiRoundResults } from "@/components/sampling/multi-round-results"
-import { StepNavigation, DatasetSelector, VersionGrid, LoadingOverlay } from "@/components/shared"
+import { 
+  StepWorkflowLayout,
+  AnimatedStep,
+  StepCard,
+  DatasetSelector,
+  VersionGrid
+} from "@/components/shared"
 import type { Dataset, DatasetVersion, MultiRoundSamplingRequest, MultiRoundSamplingResponse } from "@/lib/api/types"
 import { useQuery } from "@tanstack/react-query"
 import { toast } from "sonner"
@@ -31,11 +37,11 @@ export function SamplingPage() {
   const { selectedDataset, setSelectedDataset, selectedVersion, setSelectedVersion } = useDatasetContext()
   
   // Calculate initial step based on existing selections
-  const getInitialStep = () => {
+  const getInitialStep = useCallback(() => {
     if (selectedVersion) return 3 // Both dataset and version selected
     if (selectedDataset) return 2 // Only dataset selected
     return 1 // Nothing selected
-  }
+  }, [selectedDataset, selectedVersion])
   
   const [currentStep, setCurrentStep] = useState(getInitialStep())
   const [samplingResponse, setSamplingResponse] = useState<MultiRoundSamplingResponse | null>(null)
@@ -53,7 +59,7 @@ export function SamplingPage() {
     setCurrentStep(newStep)
     // Clear sampling response when dataset/version changes
     setSamplingResponse(null)
-  }, [selectedDataset, selectedVersion])
+  }, [selectedDataset, selectedVersion, getInitialStep])
 
   // Query hooks
   const { data: versions, isLoading: versionsLoading } = useDatasetVersions(
@@ -200,117 +206,50 @@ export function SamplingPage() {
 
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] -mx-4 lg:-mx-6 -mt-0 lg:-mt-0">
-      <div className="w-full h-full flex flex-col bg-gradient-to-b from-background to-muted/20">
-        <StepNavigation
-          steps={stepInfo}
-          currentStep={currentStep}
-          onStepClick={setCurrentStep}
-          onReset={resetFlow}
-          resetLabel="New Sample"
+    <StepWorkflowLayout
+      stepInfo={stepInfo}
+      currentStep={currentStep}
+      onStepClick={setCurrentStep}
+      onReset={resetFlow}
+      resetLabel="New Sample"
+      loadingOverlay={{
+        isLoading: samplingMutation.isPending,
+        title: "Sampling Data",
+        description: "Executing multi-round sampling..."
+      }}
+    >
+      {/* Step 1: Select Dataset */}
+      <AnimatedStep show={shouldShowStep(1)}>
+        <DatasetSelector
+          selectedDataset={selectedDataset}
+          onDatasetSelect={handleDatasetSelect}
+          isActive={currentStep === 1}
+          isCompleted={currentStep > 1}
         />
+      </AnimatedStep>
 
-        {/* Main Content Area */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="p-3 lg:p-4 space-y-3 lg:space-y-4">
-            {/* Step 1: Select Dataset */}
-            <AnimatePresence mode="wait">
-              {shouldShowStep(1) && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -10, scale: 0.98 }}
-                  transition={{ 
-                    duration: 0.4,
-                    ease: [0.4, 0.0, 0.2, 1]
-                  }}
-                  layout
-                >
-                  <DatasetSelector
-                    selectedDataset={selectedDataset}
-                    onDatasetSelect={handleDatasetSelect}
-                    isActive={currentStep === 1}
-                    isCompleted={currentStep > 1}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
+      {/* Step 2: Select Version */}
+      <AnimatedStep show={shouldShowStep(2)} delay={0.1}>
+        <VersionGrid
+          versions={versions}
+          selectedVersion={selectedVersion}
+          onVersionSelect={handleVersionSelect}
+          isActive={currentStep === 2}
+          isCompleted={currentStep > 2}
+          isLoading={versionsLoading}
+          datasetName={selectedDataset?.name}
+        />
+      </AnimatedStep>
 
-            {/* Step 2: Select Version */}
-            <AnimatePresence mode="wait">
-              {shouldShowStep(2) && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -10, scale: 0.98 }}
-                  transition={{ 
-                    duration: 0.4,
-                    delay: 0.1,
-                    ease: [0.4, 0.0, 0.2, 1]
-                  }}
-                  layout
-                >
-                  <VersionGrid
-                    versions={versions}
-                    selectedVersion={selectedVersion}
-                    onVersionSelect={handleVersionSelect}
-                    isActive={currentStep === 2}
-                    isCompleted={currentStep > 2}
-                    isLoading={versionsLoading}
-                    datasetName={selectedDataset?.name}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Step 3: Configure Multi-Round Sampling */}
-            <AnimatePresence mode="wait">
-              {shouldShowStep(3) && selectedDataset && selectedVersion && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -10, scale: 0.98 }}
-                  transition={{ 
-                    duration: 0.4,
-                    delay: 0.2,
-                    ease: [0.4, 0.0, 0.2, 1]
-                  }}
-                  layout
-                >
-                  <Card
-                    className={`transition-all duration-300 overflow-hidden ${
-                      currentStep === 3
-                        ? "border-primary/40 shadow-xl bg-gradient-to-br from-card via-card to-primary/5 ring-1 ring-primary/20"
-                        : currentStep > 3
-                          ? "bg-card/70 border-border/50 opacity-80"
-                          : ""
-                    }`}
-                  >
-                    <CardHeader className="pb-2 bg-gradient-to-r from-transparent via-primary/5 to-transparent">
-                      <div className="flex items-center gap-2">
-                        <motion.div
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                            currentStep > 3
-                              ? "bg-gradient-to-br from-primary/20 to-primary/10 text-primary"
-                              : currentStep === 3
-                                ? "bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-lg shadow-primary/30"
-                                : "bg-muted text-muted-foreground"
-                          }`}
-                        >
-                          {currentStep > 3 ? <Check className="w-6 h-6" /> : <FlaskConical className="w-6 h-6" />}
-                        </motion.div>
-                        <div>
-                          <CardTitle className="text-xl font-semibold">Sampling Configuration</CardTitle>
-                          <CardDescription className="text-sm mt-0.5">
-                            Define your sampling strategy with multiple rounds
-                          </CardDescription>
-                        </div>
-                      </div>
-                    </CardHeader>
-
-                    <CardContent className="pt-0">
+      {/* Step 3: Configure Multi-Round Sampling */}
+      <AnimatedStep show={shouldShowStep(3) && !!selectedDataset && !!selectedVersion} delay={0.2}>
+        <StepCard
+          isActive={currentStep === 3}
+          isCompleted={currentStep > 3}
+          icon={FlaskConical}
+          title="Sampling Configuration"
+          description="Define your sampling strategy with multiple rounds"
+        >
                       <MultiRoundFormV3
                         datasetId={selectedDataset.id}
                         versionId={selectedVersion.id}
@@ -318,62 +257,33 @@ export function SamplingPage() {
                         onSubmit={handleMultiRoundSubmit}
                         isLoading={samplingMutation.isPending}
                       />
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  </StepCard>
+                </AnimatedStep>
 
-            {/* Step 4: View Results */}
-            <AnimatePresence mode="wait">
-              {shouldShowStep(4) && samplingResponse && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -10, scale: 0.98 }}
-                  transition={{ 
-                    duration: 0.4,
-                    delay: 0.3,
-                    ease: [0.4, 0.0, 0.2, 1]
-                  }}
-                  layout
-                >
-                  <Card className="border-primary/40 shadow-xl bg-gradient-to-br from-card via-card to-primary/5 ring-1 ring-primary/20 overflow-hidden">
-                    <CardHeader className="pb-2 bg-gradient-to-r from-transparent via-primary/5 to-transparent">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <motion.div
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            className="w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-lg shadow-primary/30"
-                          >
-                            <Table className="w-6 h-6" />
-                          </motion.div>
-                          <div>
-                            <CardTitle className="text-xl font-semibold">
-                              Multi-Round Sampling Results
-                            </CardTitle>
-                            <CardDescription className="text-sm mt-1">
-                              {samplingResponse.rounds.length} rounds completed
-                            </CardDescription>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <motion.div
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                          >
-                            <Badge className="text-sm px-3 py-1.5 font-medium" variant="default">
-                              <Check className="w-4 h-4 mr-1.5" />
-                              Sampling Complete
-                            </Badge>
-                          </motion.div>
-                        </div>
-                      </div>
-                    </CardHeader>
-
-                    <CardContent className="pt-0 p-4">
+      {/* Step 4: View Results */}
+      <AnimatedStep show={shouldShowStep(4) && !!samplingResponse} delay={0.3}>
+        <StepCard
+          isActive={true}
+          isCompleted={false}
+          icon={Table}
+          title="Multi-Round Sampling Results"
+          description={samplingResponse ? `${samplingResponse.rounds.length} rounds completed` : ""}
+          headerContent={
+            <div className="flex items-center gap-2">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", stiffness: 500, damping: 30 }}
+              >
+                <Badge className="text-sm px-3 py-1.5 font-medium" variant="default">
+                  <Check className="w-4 h-4 mr-1.5" />
+                  Sampling Complete
+                </Badge>
+              </motion.div>
+            </div>
+          }
+        >
+          <div className="pt-0 p-4 -m-6 mt-0">
                       <MultiRoundResults
                         results={samplingResponse}
                         isLoading={samplingMutation.isPending || isLoadingPage}
@@ -381,11 +291,9 @@ export function SamplingPage() {
                         currentPage={currentPage}
                         totalPages={totalPages}
                       />
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                    </div>
+                  </StepCard>
+                </AnimatedStep>
 
             {/* Debug: Show message when on step 4 but no results */}
             {currentStep === 4 && !samplingResponse && (
@@ -401,15 +309,6 @@ export function SamplingPage() {
                 </CardContent>
               </Card>
             )}
-          </div>
-        </div>
-      </div>
-
-      <LoadingOverlay
-        isLoading={samplingMutation.isPending}
-        title="Sampling Data"
-        description="Executing multi-round sampling..."
-      />
-    </div>
+    </StepWorkflowLayout>
   )
 }

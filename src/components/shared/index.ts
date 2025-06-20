@@ -2,6 +2,9 @@ export { StepNavigation } from './step-navigation'
 export { DatasetSelector } from './dataset-selector'
 export { VersionGrid } from './version-grid'
 export { LoadingOverlay } from './loading-overlay'
+export { StepWorkflowLayout } from './step-workflow-layout'
+export { AnimatedStep } from './animated-step'
+export { StepCard } from './step-card'
 
 // Compound components
 export { DataCard } from './compound/DataCard'

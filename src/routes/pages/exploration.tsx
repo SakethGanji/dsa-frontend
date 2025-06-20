@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -21,7 +21,13 @@ import {
 } from "lucide-react"
 import { useDatasetVersions, useExploreDataset } from "@/hooks"
 import { createProfileRequest } from "@/hooks/use-exploration-query"
-import { StepNavigation, DatasetSelector, VersionGrid, LoadingOverlay } from "@/components/shared"
+import { 
+  StepWorkflowLayout,
+  AnimatedStep,
+  StepCard,
+  DatasetSelector,
+  VersionGrid
+} from "@/components/shared"
 import type { Dataset, DatasetVersion } from "@/lib/api/types"
 import { formatByteSize } from "@/lib/utils"
 import { format } from "date-fns"
@@ -64,11 +70,11 @@ export function ExplorationPage() {
   const { selectedDataset, setSelectedDataset, selectedVersion, setSelectedVersion } = useDatasetContext()
   
   // Calculate initial step based on existing selections
-  const getInitialStep = () => {
+  const getInitialStep = useCallback(() => {
     if (selectedVersion) return 3 // Both dataset and version selected
     if (selectedDataset) return 2 // Only dataset selected
     return 1 // Nothing selected
-  }
+  }, [selectedDataset, selectedVersion])
   
   const [currentStep, setCurrentStep] = useState(getInitialStep())
   const [selectedAnalysis, setSelectedAnalysis] = useState<string | null>(null)
@@ -80,7 +86,7 @@ export function ExplorationPage() {
   useEffect(() => {
     const newStep = getInitialStep()
     setCurrentStep(newStep)
-  }, [selectedDataset, selectedVersion])
+  }, [selectedDataset, selectedVersion, getInitialStep])
 
   // Query hooks
   const { data: versions, isLoading: versionsLoading } = useDatasetVersions(
@@ -209,116 +215,88 @@ export function ExplorationPage() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] -mx-4 lg:-mx-6 -mt-0 lg:-mt-0">
-      <div className="w-full h-full flex flex-col bg-gradient-to-b from-background to-muted/20">
-        <StepNavigation
-          steps={stepInfo}
-          currentStep={currentStep}
-          onStepClick={setCurrentStep}
-          onReset={resetFlow}
-          resetLabel="New Analysis"
+    <StepWorkflowLayout
+      stepInfo={stepInfo}
+      currentStep={currentStep}
+      onStepClick={setCurrentStep}
+      onReset={resetFlow}
+      resetLabel="New Analysis"
+      loadingOverlay={{
+        isLoading: isAnalyzing && selectedAnalysis === 'pandas',
+        title: "Analyzing Data",
+        description: `Running ${analysisOptions.find((a) => a.id === selectedAnalysis)?.name || 'analysis'}...`
+      }}
+    >
+      {/* Step 1: Select Dataset */}
+      <AnimatedStep show={shouldShowStep(1)}>
+        <DatasetSelector
+          selectedDataset={selectedDataset}
+          onDatasetSelect={handleDatasetSelect}
+          isActive={currentStep === 1}
+          isCompleted={currentStep > 1}
         />
+      </AnimatedStep>
 
-        {/* Main Content Area */}
-        <div className="flex-1">
-          <div className="p-3 lg:p-4 space-y-3 lg:space-y-4">
-            {/* Step 1: Select Dataset */}
-            <AnimatePresence mode="wait">
-              {shouldShowStep(1) && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -10, scale: 0.98 }}
-                  transition={{ 
-                    duration: 0.4,
-                    ease: [0.4, 0.0, 0.2, 1]
-                  }}
-                  layout
-                >
-                  <DatasetSelector
-                    selectedDataset={selectedDataset}
-                    onDatasetSelect={handleDatasetSelect}
-                    isActive={currentStep === 1}
-                    isCompleted={currentStep > 1}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
+      {/* Step 2: Select Version */}
+      <AnimatedStep show={shouldShowStep(2)} delay={0.1}>
+        <VersionGrid
+          versions={versions}
+          selectedVersion={selectedVersion}
+          onVersionSelect={handleVersionSelect}
+          isActive={currentStep === 2}
+          isCompleted={currentStep > 2}
+          isLoading={versionsLoading}
+          datasetName={selectedDataset?.name}
+        />
+      </AnimatedStep>
 
-            {/* Step 2: Select Version */}
-            <AnimatePresence mode="wait">
-              {shouldShowStep(2) && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -10, scale: 0.98 }}
-                  transition={{ 
-                    duration: 0.4,
-                    delay: 0.1,
-                    ease: [0.4, 0.0, 0.2, 1]
-                  }}
-                  layout
-                >
-                  <VersionGrid
-                    versions={versions}
-                    selectedVersion={selectedVersion}
-                    onVersionSelect={handleVersionSelect}
-                    isActive={currentStep === 2}
-                    isCompleted={currentStep > 2}
-                    isLoading={versionsLoading}
-                    datasetName={selectedDataset?.name}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Previous Analyses Alert */}
-            <AnimatePresence>
-              {showPreviousAnalyses && currentStep >= 3 && !viewingPrevious && (
-                <motion.div
-                  initial={{ opacity: 0, y: -20, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <Card className="border-primary/30 bg-primary/5 dark:bg-primary/10">
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-3">
-                        <div className="w-12 h-12 bg-primary/10 dark:bg-primary/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                          <History className="w-6 h-6 text-primary" />
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-lg mb-2">Previous Analyses Found</h3>
-                          <p className="text-sm text-muted-foreground mb-4">
-                            This dataset version has previous analyses. You can view existing results or run
-                            a new analysis.
-                          </p>
-                          <div className="flex gap-3">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setShowPreviousAnalyses(false)}
-                              className="flex items-center gap-2"
-                            >
-                              <Eye className="w-4 h-4" />
-                              View Previous
-                            </Button>
-                            <Button
-                              size="sm"
-                              onClick={handleRunNewAnalysis}
-                              className="flex items-center gap-2"
-                            >
-                              <Plus className="w-4 h-4" />
-                              Run New Analysis
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )}
-            </AnimatePresence>
+      {/* Previous Analyses Alert */}
+      <AnimatePresence>
+        {showPreviousAnalyses && currentStep >= 3 && !viewingPrevious && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Card className="border-primary/30 bg-primary/5 dark:bg-primary/10">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-12 h-12 bg-primary/10 dark:bg-primary/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <History className="w-6 h-6 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-lg mb-2">Previous Analyses Found</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      This dataset version has previous analyses. You can view existing results or run
+                      a new analysis.
+                    </p>
+                    <div className="flex gap-3">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setShowPreviousAnalyses(false)}
+                        className="flex items-center gap-2"
+                      >
+                        <Eye className="w-4 h-4" />
+                        View Previous
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleRunNewAnalysis}
+                        className="flex items-center gap-2"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Run New Analysis
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
             {/* Previous Analyses List */}
             <AnimatePresence>
@@ -393,73 +371,40 @@ export function ExplorationPage() {
               )}
             </AnimatePresence>
 
-            {/* Step 3: Explore Data */}
-            <AnimatePresence>
-              {shouldShowStep(3) && !showPreviousAnalyses && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.2 }}
-                  layout
-                >
-                  <Card
-                    className={`transition-all duration-300 overflow-hidden ${
-                      currentStep === 3
-                        ? "border-primary/40 shadow-xl bg-gradient-to-br from-card via-card to-primary/5 ring-1 ring-primary/20"
-                        : currentStep > 3
-                          ? "bg-card/70 border-border/50 opacity-80"
-                          : ""
-                    }`}
-                  >
-                    <CardHeader className="pb-2 bg-gradient-to-r from-transparent via-primary/5 to-transparent">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <motion.div
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                              currentStep > 3
-                                ? "bg-gradient-to-br from-primary/20 to-primary/10 text-primary"
-                                : currentStep === 3
-                                  ? "bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-lg shadow-primary/30"
-                                  : "bg-muted text-muted-foreground"
-                            }`}
-                          >
-                            {currentStep > 3 ? <Check className="w-6 h-6" /> : <Search className="w-6 h-6" />}
-                          </motion.div>
-                          <div>
-                            <CardTitle className="text-xl font-semibold">Data Preview</CardTitle>
-                            <CardDescription className="text-sm mt-0.5">
-                              Explore your dataset structure and content
-                            </CardDescription>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs">
-                            5 rows preview
-                          </Badge>
-                          <Badge variant="secondary" className="text-xs">
-                            {tableData?.headers?.length || 0} columns
-                          </Badge>
-                          {currentStep === 3 && (
-                            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                              <Button onClick={handleExploreData} size="sm" className="flex items-center gap-2">
-                                <Play className="w-4 h-4" />
-                                Start Analysis
-                              </Button>
-                            </motion.div>
-                          )}
-                          {currentStep > 3 && (
-                            <Badge variant="secondary" className="text-sm">
-                              <Check className="w-3 h-3 mr-1" />
-                              Data Explored
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    </CardHeader>
-
-                    <CardContent className="p-0">
+      {/* Step 3: Explore Data */}
+      <AnimatedStep show={shouldShowStep(3) && !showPreviousAnalyses} delay={0.2}>
+        <StepCard
+          isActive={currentStep === 3}
+          isCompleted={currentStep > 3}
+          icon={Search}
+          title="Data Preview"
+          description="Explore your dataset structure and content"
+          headerContent={
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-xs">
+                5 rows preview
+              </Badge>
+              <Badge variant="secondary" className="text-xs">
+                {tableData?.headers?.length || 0} columns
+              </Badge>
+              {currentStep === 3 && (
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                  <Button onClick={handleExploreData} size="sm" className="flex items-center gap-2">
+                    <Play className="w-4 h-4" />
+                    Start Analysis
+                  </Button>
+                </motion.div>
+              )}
+              {currentStep > 3 && (
+                <Badge variant="secondary" className="text-sm">
+                  <Check className="w-3 h-3 mr-1" />
+                  Data Explored
+                </Badge>
+              )}
+            </div>
+          }
+        >
+          <div className="p-0 -m-6 mt-0">
                       <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -551,55 +496,19 @@ export function ExplorationPage() {
                           </div>
                         )}
                       </motion.div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                    </div>
+                  </StepCard>
+                </AnimatedStep>
 
-            {/* Step 4: Choose Analysis */}
-            <AnimatePresence>
-              {shouldShowStep(4) && !showPreviousAnalyses && !viewingPrevious && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.3 }}
-                  layout
-                >
-                  <Card
-                    className={`transition-all duration-300 overflow-hidden ${
-                      currentStep === 4
-                        ? "border-primary/40 shadow-xl bg-gradient-to-br from-card via-card to-primary/5 ring-1 ring-primary/20"
-                        : currentStep > 4
-                          ? "bg-card/70 border-border/50 opacity-80"
-                          : ""
-                    }`}
-                  >
-                    <CardHeader className="pb-2 bg-gradient-to-r from-transparent via-primary/5 to-transparent">
-                      <div className="flex items-center gap-2">
-                        <motion.div
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                            currentStep > 4
-                              ? "bg-gradient-to-br from-primary/20 to-primary/10 text-primary"
-                              : currentStep === 4
-                                ? "bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-lg shadow-primary/30"
-                                : "bg-muted text-muted-foreground"
-                          }`}
-                        >
-                          {currentStep > 4 ? <Check className="w-6 h-6" /> : <BarChart3 className="w-6 h-6" />}
-                        </motion.div>
-                        <div>
-                          <CardTitle className="text-xl font-semibold">Analysis Options</CardTitle>
-                          <CardDescription className="text-sm mt-0.5">
-                            Choose your preferred analysis method
-                          </CardDescription>
-                        </div>
-                      </div>
-                    </CardHeader>
-
-                    <CardContent className="pt-0">
+      {/* Step 4: Choose Analysis */}
+      <AnimatedStep show={shouldShowStep(4) && !showPreviousAnalyses && !viewingPrevious} delay={0.3}>
+        <StepCard
+          isActive={currentStep === 4}
+          isCompleted={currentStep > 4}
+          icon={BarChart3}
+          title="Analysis Options"
+          description="Choose your preferred analysis method"
+        >
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                         {analysisOptions.map((option, index) => {
                           const Icon = option.icon
@@ -678,11 +587,8 @@ export function ExplorationPage() {
                           )
                         })}
                       </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  </StepCard>
+                </AnimatedStep>
 
             {/* Step 5: View Results */}
             <AnimatePresence>
@@ -844,15 +750,6 @@ export function ExplorationPage() {
                 </motion.div>
               )}
             </AnimatePresence>
-            </div>
-          </div>
-      </div>
-
-      <LoadingOverlay
-        isLoading={isAnalyzing && selectedAnalysis === 'pandas'}
-        title="Analyzing Data"
-        description={`Running ${analysisOptions.find((a) => a.id === selectedAnalysis)?.name || 'analysis'}...`}
-      />
-    </div>
+    </StepWorkflowLayout>
   )
 }
