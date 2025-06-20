@@ -4,7 +4,8 @@ import { ReactNode } from "react"
 import { motion } from "framer-motion"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Check, LucideIcon } from "lucide-react"
+import { Check } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
 
 interface StepCardProps {
   isActive: boolean

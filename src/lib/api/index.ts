@@ -110,6 +110,9 @@ export const api = {
   explore: {
     runExplore: (datasetId: number, versionId: number, options: ExploreRequest) =>
       apiClient.post<any>(`/explore/${datasetId}/${versionId}`, options),
+    
+    runEDA: (datasetId: number, versionId: number, analysisConfig: any) =>
+      apiClient.post<any>(`/explore/eda/${datasetId}/versions/${versionId}/analyze`, analysisConfig),
   },
   
   // Sampling endpoints
