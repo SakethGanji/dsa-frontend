@@ -3,7 +3,7 @@ import { KeyValuePairs } from "./charts/KeyValuePairs"
 import { DataTable } from "./charts/DataTable"
 import { Histogram } from "./charts/Histogram"
 import { BarChart } from "./charts/BarChart"
-import { SimpleHeatmap } from "./charts/SimpleHeatmap"
+import { Heatmap } from "./charts/Heatmap"
 import { BoxPlot } from "./charts/BoxPlot"
 import { AlertList } from "./charts/AlertList"
 import type { AnalysisBlock as AnalysisBlockType } from "./types"
@@ -54,7 +54,7 @@ export function AnalysisBlock({ block, className }: AnalysisBlockProps) {
       
       case 'HEATMAP':
         return (
-          <SimpleHeatmap 
+          <Heatmap 
             data={block.data} 
             title={block.title}
             description={block.description}
