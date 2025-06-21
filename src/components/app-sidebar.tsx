@@ -1,7 +1,7 @@
 import * as React from "react"
 import {
   IconTable,
-  IconChartScatter, IconChartDots,
+  IconChartScatter, IconChartDots, IconCode,
 } from "@tabler/icons-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -41,6 +41,11 @@ const sidebarData = {
       title: "Sampling",
       url: "/sampling",
       icon: IconChartScatter,
+    },
+    {
+      title: "Workbench",
+      url: "/workbench",
+      icon: IconCode,
     },
   ],
   // Bottom part of nav bar (Settings, Get Help, Search)

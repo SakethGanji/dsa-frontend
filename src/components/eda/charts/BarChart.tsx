@@ -12,6 +12,8 @@ import { cn } from "@/lib/utils"
 import type { BarChartData } from "../types"
 import '@/lib/echarts-theme'
 import { useEChartsTheme } from "@/hooks/use-echarts-theme"
+import { motion } from "framer-motion"
+import { Card, CardContent } from "@/components/ui/card"
 
 echarts.use([
   EChartsBarChart,
@@ -50,18 +52,27 @@ export function BarChart({
 
   const option = {
     backgroundColor: 'transparent',
+    animation: true,
+    animationDuration: 1000,
+    animationEasing: 'elasticOut',
     tooltip: {
       trigger: 'axis',
       axisPointer: {
-        type: 'shadow'
+        type: 'shadow',
+        shadowStyle: {
+          color: 'rgba(0, 0, 0, 0.05)'
+        }
       },
       formatter: function(params: any[]) {
         if (!Array.isArray(params) || params.length === 0) return ''
         const param = params[0]
-        let content = `<div style="font-weight: 500;">${param.name}</div>`
-        content += `<div style="margin-top: 4px;">Value: ${param.value.toLocaleString()}</div>`
+        let content = `<div style="font-weight: 600; margin-bottom: 8px;">${param.name}</div>`
+        content += `<div style="display: flex; align-items: center; gap: 8px;">`
+        content += `<div style="width: 12px; height: 12px; border-radius: 2px; background: ${param.color};"></div>`
+        content += `<span style="font-size: 14px; font-weight: 500;">${param.value.toLocaleString()}</span>`
+        content += `</div>`
         if (param.data.label) {
-          content += `<div style="margin-top: 2px; font-size: 11px;">${param.data.label}</div>`
+          content += `<div style="margin-top: 4px; font-size: 12px; opacity: 0.7;">${param.data.label}</div>`
         }
         return content
       }
@@ -104,32 +115,73 @@ export function BarChart({
       type: 'bar',
       data: chartData,
       itemStyle: {
-        borderRadius: 2
+        borderRadius: [4, 4, 0, 0],
+        shadowColor: 'rgba(0, 0, 0, 0.1)',
+        shadowBlur: 4,
+        shadowOffsetY: 2,
+        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: '#60a5fa' },
+          { offset: 1, color: '#3b82f6' }
+        ])
+      },
+      emphasis: {
+        itemStyle: {
+          shadowColor: 'rgba(0, 0, 0, 0.2)',
+          shadowBlur: 10,
+          shadowOffsetY: 4,
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: '#93c5fd' },
+            { offset: 1, color: '#60a5fa' }
+          ])
+        }
       },
       label: {
         show: true,
         position: isHorizontal ? 'right' : 'top',
-        fontSize: 11,
-        formatter: '{c}'
+        fontSize: 12,
+        fontWeight: 600,
+        formatter: '{c}',
+        color: '#64748b'
+      },
+      animationDelay: function(idx: number) {
+        return idx * 50
       }
     }]
   }
 
   return (
-    <div className={cn("space-y-3", className)}>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className={cn("space-y-4", className)}
+    >
       {title && (
         <div>
-          <h3 className="text-lg font-semibold">{title}</h3>
-          {description && <p className="text-sm text-muted-foreground mt-1">{description}</p>}
+          <h3 className="text-xl font-semibold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+            {title}
+          </h3>
+          {description && (
+            <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
+              {description}
+            </p>
+          )}
         </div>
       )}
-      <ReactEChartsCore
-        key={echartsTheme}
-        echarts={echarts}
-        option={option}
-        style={{ height: `${height}px`, width: '100%' }}
-        theme={echartsTheme}
-      />
-    </div>
+      <Card className="border-0 shadow-sm hover:shadow-lg transition-shadow duration-300 overflow-hidden">
+        <CardContent className="p-6">
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent rounded-lg" />
+            <ReactEChartsCore
+              key={echartsTheme}
+              echarts={echarts}
+              option={option}
+              style={{ height: `${height}px`, width: '100%', position: 'relative', zIndex: 1 }}
+              theme={echartsTheme}
+            />
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
   )
 }

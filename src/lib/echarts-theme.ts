@@ -2,15 +2,15 @@ import * as echarts from 'echarts';
 
 const lightTheme = {
     "color": [
-        "#5470c6",
-        "#91cc75",
-        "#fac858",
-        "#ee6666",
-        "#73c0de",
-        "#3ba272",
-        "#fc8452",
-        "#9a60b4",
-        "#ea7ccc"
+        "#3b82f6",
+        "#10b981",
+        "#f59e0b",
+        "#ef4444",
+        "#8b5cf6",
+        "#06b6d4",
+        "#ec4899",
+        "#14b8a6",
+        "#f97316"
     ],
     "backgroundColor": "transparent",
     "textStyle": {},
@@ -76,28 +76,27 @@ const lightTheme = {
         }
     },
     "tooltip": {
-        "backgroundColor": "rgba(255, 255, 255, 0.9)",
-        "borderColor": "#ccc",
-        "borderWidth": 1,
+        "backgroundColor": "rgba(255, 255, 255, 0.95)",
+        "borderColor": "rgba(0, 0, 0, 0.1)",
+        "borderWidth": 0,
         "textStyle": {
-            "color": "#333333"
-        }
+            "color": "#1e293b"
+        },
+        "extraCssText": "box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); border-radius: 8px; padding: 12px;"
     }
 };
 
 const darkTheme = {
     "color": [
-        "#dd6b66",
-        "#759aa0",
-        "#e69d87",
-        "#8dc1a9",
-        "#ea7e53",
-        "#eedd78",
-        "#73a373",
-        "#73b9bc",
-        "#7289ab",
-        "#91ca8c",
-        "#f49f42"
+        "#60a5fa",
+        "#34d399",
+        "#fbbf24",
+        "#f87171",
+        "#a78bfa",
+        "#22d3ee",
+        "#f472b6",
+        "#2dd4bf",
+        "#fb923c"
     ],
     "backgroundColor": "transparent",
     "textStyle": {},
@@ -261,24 +260,21 @@ const darkTheme = {
         "axisLine": {
             "show": true,
             "lineStyle": {
-                "color": "#eeeeee"
+                "color": "rgba(255, 255, 255, 0.1)"
             }
         },
         "axisTick": {
-            "show": true,
-            "lineStyle": {
-                "color": "#eeeeee"
-            }
+            "show": false
         },
         "axisLabel": {
             "show": true,
-            "color": "#eeeeee"
+            "color": "rgba(255, 255, 255, 0.7)"
         },
         "splitLine": {
             "show": true,
             "lineStyle": {
                 "color": [
-                    "#aaaaaa"
+                    "rgba(255, 255, 255, 0.05)"
                 ]
             }
         },
@@ -293,26 +289,20 @@ const darkTheme = {
     },
     "valueAxis": {
         "axisLine": {
-            "show": true,
-            "lineStyle": {
-                "color": "#eeeeee"
-            }
+            "show": false
         },
         "axisTick": {
-            "show": true,
-            "lineStyle": {
-                "color": "#eeeeee"
-            }
+            "show": false
         },
         "axisLabel": {
             "show": true,
-            "color": "#eeeeee"
+            "color": "rgba(255, 255, 255, 0.7)"
         },
         "splitLine": {
             "show": true,
             "lineStyle": {
                 "color": [
-                    "#aaaaaa"
+                    "rgba(255, 255, 255, 0.05)"
                 ]
             }
         },

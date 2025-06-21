@@ -3,6 +3,7 @@ import { RootLayout } from './root'
 import { DatasetsPage } from './pages/datasets'
 import { ExplorationPage } from './pages/exploration'
 import { SamplingPage } from './pages/sampling'
+import WorkbenchPage from './pages/workbench'
 import { LoginPage } from './pages/login'
 import { ProtectedRoute } from '../components/auth/protected-route'
 import { AuthProvider } from '../components/providers/auth-provider' // Added import
@@ -55,6 +56,11 @@ export const samplingRoute = createRoute({
   component: SamplingPage,
 })
 
+export const workbenchRoute = createRoute({
+  getParentRoute: () => protectedLayoutRoute,
+  path: '/workbench',
+  component: WorkbenchPage,
+})
 
 // Create the route tree
 const routeTree = rootRoute.addChildren([
@@ -63,6 +69,7 @@ const routeTree = rootRoute.addChildren([
     datasetsRoute,
     explorationRoute,
     samplingRoute,
+    workbenchRoute,
   ])
 ])
 

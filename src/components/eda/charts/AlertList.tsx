@@ -1,9 +1,11 @@
+import React from "react"
 import { motion } from "framer-motion"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import { AlertCircle, AlertTriangle, Info } from "lucide-react"
+import { AlertCircle, AlertTriangle, Info, CheckCircle2, XCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { AlertListData } from "../types"
+import { Card, CardContent } from "@/components/ui/card"
 
 interface AlertListProps {
   data: AlertListData
