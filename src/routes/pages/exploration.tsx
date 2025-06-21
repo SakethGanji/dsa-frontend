@@ -19,7 +19,7 @@ import {
   Eye,
   Plus,
 } from "lucide-react"
-import { useDatasetVersions, useExploreDataset, useNativeProfile, defaultNativeProfileConfig } from "@/hooks"
+import { useDatasetVersions, useExploreDataset } from "@/hooks"
 import { createProfileRequest } from "@/hooks/use-exploration-query"
 import { 
   StepWorkflowLayout,
@@ -28,7 +28,6 @@ import {
   DatasetSelector,
   VersionGrid
 } from "@/components/shared"
-import { NativeProfileResults } from "@/components/exploration/native-profile-results"
 import type { Dataset, DatasetVersion } from "@/lib/api/types"
 import { formatByteSize } from "@/lib/utils"
 import { format } from "date-fns"
@@ -44,12 +43,6 @@ import {
 } from "@/components/ui/table"
 
 const analysisOptions = [
-  {
-    id: "native",
-    name: "Native Profile",
-    description: "Built in-house for speed, flexibility, and customizable exploration. Ideal for deep dives and tailored insights.",
-    icon: Sparkles,
-  },
   {
     id: "pandas",
     name: "YData Profile",
@@ -95,7 +88,6 @@ export function ExplorationPage() {
     { enabled: !!selectedDataset }
   )
   const exploreMutation = useExploreDataset<{ profile?: string }>()
-  const nativeProfileMutation = useNativeProfile()
   
   // Fetch table data for preview with direct API call
   const { data: tableData } = useQuery({
@@ -147,27 +139,7 @@ export function ExplorationPage() {
   const handleAnalysisSelect = (analysisId: string) => {
     setSelectedAnalysis(analysisId)
     
-    if (analysisId === 'native') {
-      // For native profile, make the EDA API call
-      setIsAnalyzing(true)
-      
-      if (selectedDataset && selectedVersion) {
-        nativeProfileMutation.mutate({
-          datasetId: selectedDataset.id,
-          versionId: selectedVersion.id,
-          config: defaultNativeProfileConfig
-        }, {
-          onSuccess: () => {
-            setIsAnalyzing(false)
-            setCurrentStep(5)
-          },
-          onError: (error) => {
-            setIsAnalyzing(false)
-            console.error('Native profile analysis failed:', error)
-          }
-        })
-      }
-    } else if (analysisId === 'pandas') {
+    if (analysisId === 'pandas') {
       // For pandas profiling, make the API call
       setIsAnalyzing(true)
       
@@ -589,11 +561,6 @@ export function ExplorationPage() {
                                         )}
                                       </div>
                                       <p className="text-sm text-muted-foreground leading-snug">{option.description}</p>
-                                      {option.id === "native" && (
-                                        <div className="flex items-center gap-2">
-                                          <Badge className="text-xs" variant="default">Recommended</Badge>
-                                        </div>
-                                      )}
                                     </div>
                                   </div>
                                 </CardContent>
@@ -650,13 +617,7 @@ export function ExplorationPage() {
                     </CardHeader>
 
                     <CardContent>
-                      {selectedAnalysis === 'native' ? (
-                        <NativeProfileResults 
-                          data={nativeProfileMutation.data} 
-                          isLoading={nativeProfileMutation.isPending}
-                        />
-                      ) : (
-                        exploreMutation.isPending ? (
+                      {exploreMutation.isPending ? (
                           <div className="p-8 text-center">
                             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent motion-reduce:animate-[spin_1.5s_linear_infinite] mb-4"></div>
                             <p className="text-gray-500">Generating analysis...</p>
@@ -759,8 +720,7 @@ export function ExplorationPage() {
                               </motion.div>
                             </div>
                           </motion.div>
-                        )
-                      )}
+                        )}
                     </CardContent>
                   </Card>
                 </motion.div>

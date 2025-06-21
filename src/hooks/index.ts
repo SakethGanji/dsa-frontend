@@ -8,7 +8,6 @@ export * from './use-datasets-query';
 
 // Exploration hooks
 export * from './use-exploration-query';
-export * from './use-native-profile';
 
 // Sampling hooks
 export * from './use-sampling-query';

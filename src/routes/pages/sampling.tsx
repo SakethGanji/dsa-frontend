@@ -251,8 +251,8 @@ export function SamplingPage() {
           description="Define your sampling strategy with multiple rounds"
         >
                       <MultiRoundFormV3
-                        datasetId={selectedDataset.id}
-                        versionId={selectedVersion.id}
+                        datasetId={selectedDataset?.id || 0}
+                        versionId={selectedVersion?.id || 0}
                         datasetColumns={datasetInfo?.columns || []}
                         onSubmit={handleMultiRoundSubmit}
                         isLoading={samplingMutation.isPending}

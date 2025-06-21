@@ -1,14 +1,20 @@
 "use client"
 
-import { useEffect, useId, useRef, useState } from "react"
-import { AnimatePresence, motion } from "motion/react"
+import {
+    createContext,
+    memo,
+    useCallback,
+    useContext,
+    useEffect,
+    useId,
+    useRef,
+    useState,
+} from "react"
+import { AnimatePresence, motion } from "framer-motion"
 import { useOutsideClick } from "@/hooks/use-outside-click"
 
-import {
-    Card,
-    CardDescription,
-    CardTitle,
-} from "@/components/ui/card"
+// UI Components (assuming these are from shadcn/ui)
+import { Card, CardDescription, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -19,7 +25,8 @@ import {
     IconCloudDownload,
 } from "@tabler/icons-react"
 
-// Define the dataset information interface
+// --- TYPES ---
+// Kept the same, they are well-defined.
 interface DatasetInfo {
     id: number
     name: string
@@ -32,21 +39,292 @@ interface DatasetInfo {
     tags: string[]
 }
 
-// Define the detailed dataset information interface
 interface DetailedDatasetInfo {
-    id: number;
+    id: number
     additionalDetails: {
-        rowCount: number;
-        columnCount: number;
-        createdAt: string;
-        lastAccessed: string;
-        format: string;
-        encoding: string;
-        validationStatus: string;
-    };
+        rowCount: number
+        columnCount: number
+        createdAt: string
+        lastAccessed: string
+        format: string
+        encoding: string
+        validationStatus: string
+    }
 }
 
-// Main component props
+// --- CONTEXT ---
+// IMPROVEMENT: Use Context to avoid prop drilling `onView`, `onSave`, etc.
+interface DatasetCardContextType {
+    onView: (id: number) => void
+    onDownload: (id: number) => void
+    onSave: (id: number) => void
+    onSelect: (dataset: DatasetInfo) => void
+    uniqueId: string
+}
+
+const DatasetCardContext = createContext<DatasetCardContextType | null>(null)
+
+const useDatasetCardContext = () => {
+    const context = useContext(DatasetCardContext)
+    if (!context) {
+        throw new Error("useDatasetCardContext must be used within a DatasetCardProvider")
+    }
+    return context
+}
+
+// --- UTILITIES ---
+const formatDate = (dateString: string) => {
+    // Robust date parsing
+    const date = new Date(dateString.includes(" ") ? dateString.replace(" ", "T") + "Z" : dateString)
+    if (isNaN(date.getTime())) return "Invalid Date"
+    return new Intl.DateTimeFormat("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+    }).format(date)
+}
+
+const formatDetailKey = (key: string) =>
+    key.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase())
+
+
+// --- REUSABLE SUB-COMPONENTS (MEMOIZED) ---
+
+const ActionButtons = memo(({ datasetId }: { datasetId: number }) => {
+    // IMPROVEMENT: Gets handlers from context instead of props
+    const { onView, onDownload, onSave, uniqueId } = useDatasetCardContext()
+
+    const stopPropagationAndCall = (fn: (id: number) => void) => (e: React.MouseEvent) => {
+        e.stopPropagation()
+        fn(datasetId)
+    }
+
+    return (
+        <motion.div layoutId={`actions-${datasetId}-${uniqueId}`} className="flex gap-0.5">
+            <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                <Button variant="ghost" size="icon" className="h-7 w-7 rounded hover:bg-destructive/10" onClick={stopPropagationAndCall(onSave)} aria-label="Save">
+                    <IconBookmark className="h-3.5 w-3.5 text-destructive" stroke={2} />
+                </Button>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                <Button variant="ghost" size="icon" className="h-7 w-7 rounded hover:bg-blue-500/10" onClick={stopPropagationAndCall(onDownload)} aria-label="Download">
+                    <IconCloudDownload className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" stroke={2} />
+                </Button>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                <Button variant="ghost" size="icon" className="h-7 w-7 rounded hover:bg-green-500/10" onClick={stopPropagationAndCall(onView)} aria-label="View">
+                    <IconArrowUpRight className="h-3.5 w-3.5 text-green-600 dark:text-green-400" stroke={2} />
+                </Button>
+            </motion.div>
+        </motion.div>
+    )
+})
+ActionButtons.displayName = "ActionButtons"
+
+
+const TagsDisplay = memo(({ tags, limit = 3, isExpanded = false }: { tags: string[], limit?: number, isExpanded?: boolean }) => {
+    const displayTags = isExpanded ? tags : tags.slice(0, limit)
+
+    return (
+        <div className="flex flex-wrap gap-1.5">
+            {displayTags.map((tag) => (
+                <Badge key={tag} variant="secondary" className="text-[10px] px-1.5 py-0.5 font-medium bg-secondary/80 hover:bg-secondary transition-colors">
+                    {tag}
+                </Badge>
+            ))}
+            {!isExpanded && tags.length > limit && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 border-dashed">
+                    +{tags.length - limit}
+                </Badge>
+            )}
+        </div>
+    )
+})
+TagsDisplay.displayName = "TagsDisplay"
+
+
+const TypeInfo = memo(({ fileType, fileSize }: { fileType: string, fileSize: string }) => (
+    <div className="flex items-center gap-1.5 text-xs">
+        <Badge variant="outline" className="text-[10px] font-medium px-1.5 py-0">
+            {fileType.toUpperCase()}
+        </Badge>
+        <span className="text-muted-foreground">{fileSize}</span>
+    </div>
+))
+TypeInfo.displayName = "TypeInfo"
+
+
+// --- CARD LAYOUTS (MEMOIZED) ---
+
+const GridCardView = memo(({ dataset }: { dataset: DatasetInfo }) => {
+    const { uniqueId } = useDatasetCardContext()
+    return (
+        <div className="flex flex-col h-full p-2.5 gap-1.5">
+            <div className="flex flex-col space-y-1">
+                <div className="flex justify-between items-start gap-2">
+                    <motion.div layoutId={`title-${dataset.id}-${uniqueId}`} className="flex-1 min-w-0">
+                        <CardTitle className="text-sm font-semibold leading-tight break-words">
+                            {dataset.name}
+                        </CardTitle>
+                    </motion.div>
+                    <motion.div layoutId={`badge-${dataset.id}-${uniqueId}`} className="flex-shrink-0">
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">v{dataset.version}</Badge>
+                    </motion.div>
+                </div>
+                <motion.div layoutId={`description-${dataset.id}-${uniqueId}`}>
+                    <CardDescription className="text-xs leading-snug line-clamp-2">{dataset.description}</CardDescription>
+                </motion.div>
+            </div>
+            <div className="space-y-1.5">
+                <motion.div layoutId={`metadata-${dataset.id}-${uniqueId}`} className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                    <TypeInfo fileType={dataset.fileType} fileSize={dataset.fileSize} />
+                    <span className="text-muted-foreground">•</span>
+                    <div className="flex items-center gap-1"><IconCalendar className="h-3 w-3" stroke={1.5} /><span className="whitespace-nowrap">{formatDate(dataset.lastUpdatedTimestamp)}</span></div>
+                </motion.div>
+                <motion.div layoutId={`tags-${dataset.id}-${uniqueId}`}>
+                    <TagsDisplay tags={dataset.tags} limit={2} />
+                </motion.div>
+            </div>
+            <div className="mt-auto pt-1.5 border-t border-border/20 flex justify-between items-center gap-2">
+                <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0">
+                    <IconUser className="h-3 w-3 flex-shrink-0" stroke={1.5} />
+                    <span className="truncate">{dataset.uploader}</span>
+                </div>
+                <ActionButtons datasetId={dataset.id} />
+            </div>
+        </div>
+    )
+})
+GridCardView.displayName = "GridCardView"
+
+
+const ListCardView = memo(({ dataset }: { dataset: DatasetInfo }) => {
+    const { uniqueId } = useDatasetCardContext()
+    return (
+        <div className="p-2.5 md:p-3">
+            <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                        <motion.div layoutId={`title-${dataset.id}-${uniqueId}`}><CardTitle className="text-sm font-semibold leading-tight">{dataset.name}</CardTitle></motion.div>
+                        <motion.div layoutId={`badge-${dataset.id}-${uniqueId}`}><Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">v{dataset.version}</Badge></motion.div>
+                    </div>
+                    <motion.div layoutId={`description-${dataset.id}-${uniqueId}`}><CardDescription className="text-xs leading-tight mb-1.5 line-clamp-1">{dataset.description}</CardDescription></motion.div>
+                    <motion.div layoutId={`metadata-${dataset.id}-${uniqueId}`} className="flex flex-wrap items-center gap-2 text-[11px]">
+                        <TypeInfo fileType={dataset.fileType} fileSize={dataset.fileSize} />
+                        <span className="text-muted-foreground">•</span>
+                        <div className="flex items-center gap-0.5 text-muted-foreground"><IconCalendar className="h-2.5 w-2.5" stroke={1.5} /><span>{formatDate(dataset.lastUpdatedTimestamp)}</span></div>
+                        <span className="text-muted-foreground">•</span>
+                        <div className="flex items-center gap-0.5 text-muted-foreground"><IconUser className="h-2.5 w-2.5" stroke={1.5} /><span>{dataset.uploader}</span></div>
+                    </motion.div>
+                </div>
+                <motion.div layoutId={`tags-${dataset.id}-${uniqueId}`} className="hidden md:block">
+                    <TagsDisplay tags={dataset.tags} limit={3} />
+                </motion.div>
+                <ActionButtons datasetId={dataset.id} />
+            </div>
+        </div>
+    )
+})
+ListCardView.displayName = "ListCardView"
+
+const DatasetCard = memo(({ dataset, isListView }: { dataset: DatasetInfo, isListView: boolean }) => {
+    // IMPROVEMENT: Gets `onSelect` from context
+    const { onSelect, uniqueId } = useDatasetCardContext()
+
+    return (
+        <motion.div
+            layoutId={`card-${dataset.id}-${uniqueId}`}
+            onClick={() => onSelect(dataset)}
+            className={`relative h-full ${isListView ? "w-full" : "h-full"}`}
+        >
+            <Card className={`h-full overflow-hidden cursor-pointer hover:bg-accent/50 hover:border-primary/20 transition-all duration-200 border border-border/40 py-0 gap-0 shadow-none bg-card/50 ${isListView ? "w-full" : "flex flex-col"}`}>
+                {isListView ? <ListCardView dataset={dataset} /> : <GridCardView dataset={dataset} />}
+            </Card>
+        </motion.div>
+    )
+})
+DatasetCard.displayName = "DatasetCard"
+
+
+// --- EXPANDED MODAL VIEW ---
+
+const ExpandedCardView = ({ dataset, detailData }: { dataset: DatasetInfo, detailData: DetailedDatasetInfo | null }) => {
+    const { uniqueId } = useDatasetCardContext()
+
+    const renderDetailItem = (label: string, value: React.ReactNode, icon?: React.ReactNode) => (
+        <div className="space-y-1">
+            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</div>
+            <div className="flex items-center gap-1 text-sm font-medium">{icon}{value}</div>
+        </div>
+    )
+
+    return (
+        <div className="flex flex-col h-full">
+            <header className="flex items-start justify-between p-4 border-b">
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3 mb-2">
+                        <motion.div layoutId={`title-${dataset.id}-${uniqueId}`}><CardTitle className="text-lg font-bold">{dataset.name}</CardTitle></motion.div>
+                        <motion.div layoutId={`badge-${dataset.id}-${uniqueId}`}><Badge variant="secondary" className="text-xs px-2 py-1">v{dataset.version}</Badge></motion.div>
+                    </div>
+                    <motion.div layoutId={`description-${dataset.id}-${uniqueId}`}><CardDescription className="text-sm">{dataset.description}</CardDescription></motion.div>
+                </div>
+                <div className="ml-4 flex-shrink-0"><ActionButtons datasetId={dataset.id} /></div>
+            </header>
+
+            <main className="flex-1 p-4 space-y-4 overflow-y-auto">
+                <section className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {renderDetailItem("File Info", <motion.div layoutId={`metadata-${dataset.id}-${uniqueId}`}><TypeInfo fileType={dataset.fileType} fileSize={dataset.fileSize} /></motion.div>)}
+                    {renderDetailItem("Last Updated", formatDate(dataset.lastUpdatedTimestamp), <IconCalendar className="h-3.5 w-3.5 text-muted-foreground" />)}
+                    {renderDetailItem("Uploader", <span className="truncate">{dataset.uploader}</span>, <IconUser className="h-3.5 w-3.5 text-muted-foreground" />)}
+                    {detailData && renderDetailItem("Rows", detailData.additionalDetails.rowCount.toLocaleString())}
+                    {detailData && renderDetailItem("Columns", detailData.additionalDetails.columnCount)}
+                </section>
+                <section className="space-y-2">
+                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Tags</h3>
+                    <motion.div layoutId={`tags-${dataset.id}-${uniqueId}`}><TagsDisplay tags={dataset.tags} isExpanded /></motion.div>
+                </section>
+                {detailData?.additionalDetails && (
+                    <section className="space-y-3 pt-3 border-t">
+                        <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Technical Details</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            {Object.entries(detailData.additionalDetails)
+                                .filter(([key]) => !['rowCount', 'columnCount'].includes(key))
+                                .map(([key, value]) => (
+                                    <div key={key} className="flex justify-between items-center text-xs py-1.5 px-2 rounded-md bg-muted/50">
+                                        <span className="text-muted-foreground capitalize">{formatDetailKey(key)}</span>
+                                        <span className="font-medium">{String(value)}</span>
+                                    </div>
+                                ))}
+                        </div>
+                    </section>
+                )}
+            </main>
+        </div>
+    )
+}
+
+// --- MOCK API ---
+const fetchDetailedDataset = async (datasetId: number): Promise<DetailedDatasetInfo> => {
+    console.log(`Fetching details for dataset ${datasetId}...`)
+    return new Promise((resolve) => {
+        setTimeout(() => {
+            resolve({
+                id: datasetId,
+                additionalDetails: {
+                    rowCount: Math.floor(Math.random() * 100000) + 5000,
+                    columnCount: Math.floor(Math.random() * 50) + 10,
+                    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30).toISOString(),
+                    lastAccessed: new Date().toISOString(),
+                    format: "CSV",
+                    encoding: "UTF-8",
+                    validationStatus: "Passed",
+                }
+            })
+        }, 300)
+    })
+}
+
+// --- MAIN COMPONENT ---
 interface ExpandableDatasetCardProps {
     datasets: DatasetInfo[]
     onView: (id: number) => void
@@ -55,557 +333,130 @@ interface ExpandableDatasetCardProps {
     isList?: boolean
 }
 
-// Common utilities and shared components
-const formatDate = (dateString: string) => {
-    const date = new Date(
-        dateString.includes(" ") ? dateString.replace(" ", "T") : dateString
-    )
-    if (isNaN(date.getTime())) {
-        return "Invalid Date"
-    }
-    return new Intl.DateTimeFormat("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-    }).format(date)
-}
-
-// Action buttons component for reuse
-interface ActionButtonsProps {
-    datasetId: number
-    onView: (id: number) => void
-    onDownload: (id: number) => void
-    onSave: (id: number) => void
-    layoutId?: string
-}
-
-const ActionButtons = ({ datasetId, onView, onDownload, onSave, layoutId }: ActionButtonsProps) => (
-    <motion.div layoutId={layoutId} className="flex gap-0.5">
-        {/* Save */}
-        <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-            <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 rounded hover:bg-destructive/10"
-                onClick={(e) => {
-                    e.stopPropagation()
-                    onSave(datasetId)
-                }}
-                aria-label="Save"
-            >
-                <IconBookmark className="h-3.5 w-3.5 text-destructive" stroke={2} />
-            </Button>
-        </motion.div>
-
-        {/* Download */}
-        <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-            <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 rounded hover:bg-blue-500/10"
-                onClick={(e) => {
-                    e.stopPropagation()
-                    onDownload(datasetId)
-                }}
-                aria-label="Download"
-            >
-                <IconCloudDownload className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" stroke={2} />
-            </Button>
-        </motion.div>
-
-        {/* View */}
-        <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-            <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 rounded hover:bg-green-500/10"
-                onClick={(e) => {
-                    e.stopPropagation()
-                    onView(datasetId)
-                }}
-                aria-label="View"
-            >
-                <IconArrowUpRight className="h-3.5 w-3.5 text-green-600 dark:text-green-400" stroke={2} />
-            </Button>
-        </motion.div>
-    </motion.div>
-)
-
-// Tags display component
-interface TagsDisplayProps {
-    tags: string[]
-    limit?: number
-    showPlus?: boolean
-    initialDelayOffset?: number
-    isExpanded?: boolean
-}
-
-const TagsDisplay = ({ 
-    tags, 
-    limit = 3, 
-    showPlus = true, 
-    initialDelayOffset = 0,
-    isExpanded = false
-}: TagsDisplayProps) => {
-    const displayTags = isExpanded ? tags : tags.slice(0, limit)
-    
-    return (
-        <motion.div className="flex flex-wrap gap-1.5">
-            {displayTags.map((tag, i) => (
-                <motion.div
-                    key={tag}
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{
-                        opacity: 1,
-                        y: 0,
-                        transition: { delay: initialDelayOffset + i * 0.1 },
-                    }}
-                >
-                    <Badge
-                        variant="secondary"
-                        className="text-[10px] px-1.5 py-0.5 font-medium bg-secondary/80 hover:bg-secondary transition-colors"
-                    >
-                        {tag}
-                    </Badge>
-                </motion.div>
-            ))}
-            {!isExpanded && showPlus && tags.length > limit && (
-                <motion.div
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{
-                        opacity: 1,
-                        y: 0,
-                        transition: { delay: initialDelayOffset + limit * 0.1 },
-                    }}
-                >
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 border-dashed">
-                        +{tags.length - limit}
-                    </Badge>
-                </motion.div>
-            )}
-        </motion.div>
-    )
-}
-
-// Type Info component (file type, size)
-interface TypeInfoProps {
-    fileType: string
-    fileSize: string
-    layoutId?: string
-}
-
-const TypeInfo = ({ fileType, fileSize, layoutId }: TypeInfoProps) => (
-    <motion.div layoutId={layoutId} className="flex items-center gap-1.5 text-xs">
-        <Badge
-            variant="outline"
-            className="text-[10px] font-medium px-1.5 py-0"
-        >
-            {fileType.toUpperCase()}
-        </Badge>
-        <span className="text-muted-foreground">{fileSize}</span>
-    </motion.div>
-)
-
-// Grid Card View
-interface GridCardViewProps {
-    dataset: DatasetInfo
-    isExpanded: boolean
-    onView: (id: number) => void
-    onDownload: (id: number) => void
-    onSave: (id: number) => void
-    uniqueId: string
-}
-
-const GridCardView = ({ dataset, isExpanded, onView, onDownload, onSave, uniqueId }: GridCardViewProps) => (
-    <div className="flex flex-col h-full">
-        <div className="flex flex-col gap-2 p-3 flex-grow">
-            <div className="flex flex-col space-y-1">
-                <div className="flex justify-between items-start gap-2">
-                    <motion.div layoutId={`title-${dataset.id}-${uniqueId}`} className="flex-1 min-w-0">
-                        <CardTitle className="text-sm font-semibold leading-snug break-all hyphens-auto">
-                            {dataset.name}
-                        </CardTitle>
-                    </motion.div>
-                    <motion.div layoutId={`badge-${dataset.id}-${uniqueId}`} className="flex-shrink-0">
-                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
-                            v{dataset.version}
-                        </Badge>
-                    </motion.div>
-                </div>
-                <motion.div layoutId={`description-${dataset.id}-${uniqueId}`}>
-                    <CardDescription className={`text-xs leading-relaxed ${isExpanded ? "" : "line-clamp-2"}`}>
-                        {dataset.description}
-                    </CardDescription>
-                </motion.div>
-            </div>
-
-            <div className="flex-grow space-y-2">
-                <motion.div layoutId={`info-${dataset.id}-${uniqueId}`} className="flex flex-col gap-2">
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        <TypeInfo 
-                            fileType={dataset.fileType} 
-                            fileSize={dataset.fileSize} 
-                        />
-                        <div className="flex items-center gap-1">
-                            <IconCalendar className="h-3 w-3" stroke={1.5} />
-                            <span className="whitespace-nowrap">{formatDate(dataset.lastUpdatedTimestamp)}</span>
-                        </div>
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                        <TagsDisplay 
-                            tags={dataset.tags} 
-                            isExpanded={isExpanded}
-                            limit={2}
-                        />
-                    </div>
-                </motion.div>
-            </div>
-        </div>
-
-        <div className="px-3 pb-3 pt-0">
-            <div className="pt-2 border-t border-border/20 flex justify-between items-center gap-2">
-                <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0">
-                    <IconUser className="h-3 w-3 flex-shrink-0" stroke={1.5} />
-                    <span className="truncate">{dataset.uploader}</span>
-                </div>
-
-                <ActionButtons
-                    datasetId={dataset.id}
-                    onView={onView}
-                    onDownload={onDownload}
-                    onSave={onSave}
-                    layoutId={`actions-${dataset.id}-${uniqueId}`}
-                />
-            </div>
-        </div>
-    </div>
-)
-
-// List Card View
-interface ListCardViewProps {
-    dataset: DatasetInfo
-    isExpanded: boolean
-    onView: (id: number) => void
-    onDownload: (id: number) => void
-    onSave: (id: number) => void
-    uniqueId: string
-}
-
-const ListCardView = ({ dataset, isExpanded, onView, onDownload, onSave, uniqueId }: ListCardViewProps) => (
-    <div className="p-2.5 md:p-3">
-        <div className="flex items-start justify-between gap-3">
-            {/* Left side: Title, Description, and Metadata */}
-            <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                    <motion.div layoutId={`title-${dataset.id}-${uniqueId}`}>
-                        <CardTitle className="text-sm font-semibold leading-tight">
-                            {dataset.name}
-                        </CardTitle>
-                    </motion.div>
-                    <motion.div layoutId={`badge-${dataset.id}-${uniqueId}`}>
-                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
-                            v{dataset.version}
-                        </Badge>
-                    </motion.div>
-                </div>
-                
-                <motion.div layoutId={`description-${dataset.id}-${uniqueId}`}>
-                    <CardDescription className={`text-xs leading-tight mb-1.5 ${isExpanded ? "" : "line-clamp-1"}`}>
-                        {dataset.description}
-                    </CardDescription>
-                </motion.div>
-
-                {/* Metadata in a single compact row */}
-                <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                    <motion.div layoutId={`info-${dataset.id}-${uniqueId}`}>
-                        <TypeInfo
-                            fileType={dataset.fileType}
-                            fileSize={dataset.fileSize}
-                        />
-                    </motion.div>
-                    
-                    <span className="text-muted-foreground">•</span>
-                    
-                    <div className="flex items-center gap-0.5 text-muted-foreground">
-                        <IconCalendar className="h-2.5 w-2.5" stroke={1.5} />
-                        <span>{formatDate(dataset.lastUpdatedTimestamp)}</span>
-                    </div>
-                    
-                    <span className="text-muted-foreground">•</span>
-                    
-                    <div className="flex items-center gap-0.5 text-muted-foreground">
-                        <IconUser className="h-2.5 w-2.5" stroke={1.5} />
-                        <span>{dataset.uploader}</span>
-                    </div>
-                    
-                    <span className="text-muted-foreground">•</span>
-                    
-                    <motion.div layoutId={`tags-${dataset.id}-${uniqueId}`}>
-                        <TagsDisplay
-                            tags={dataset.tags}
-                            isExpanded={isExpanded}
-                            limit={2}
-                            showPlus={!isExpanded}
-                        />
-                    </motion.div>
-                </div>
-            </div>
-
-            {/* Right side: Actions */}
-            <ActionButtons
-                datasetId={dataset.id}
-                onView={onView}
-                onDownload={onDownload}
-                onSave={onSave}
-                layoutId={`actions-${dataset.id}-${uniqueId}`}
-            />
-        </div>
-    </div>
-)
-
-// Generic DatasetCard wrapper
-interface DatasetCardProps {
-    dataset: DatasetInfo
-    isExpanded: boolean
-    isListView: boolean
-    uniqueId: string
-    onView: (id: number) => void
-    onDownload: (id: number) => void
-    onSave: (id: number) => void
-}
-
-const DatasetCard = ({ 
-    dataset, 
-    isExpanded, 
-    isListView, 
-    uniqueId,
-    onView,
-    onDownload,
-    onSave
-}: DatasetCardProps) => (
-    <Card
-        className={`${
-            isListView ? "w-full" : "h-full flex flex-col"
-        } overflow-hidden ${
-            !isExpanded
-                ? "cursor-pointer hover:bg-accent/50 hover:border-primary/20 dark:hover:border-primary/20 transition-all duration-200"
-                : ""
-        } border border-border/40 py-0 gap-0 shadow-none bg-card/50`}
-    >
-        {isListView ? (
-            <ListCardView 
-                dataset={dataset} 
-                isExpanded={isExpanded} 
-                onView={onView}
-                onDownload={onDownload}
-                onSave={onSave}
-                uniqueId={uniqueId}
-            />
-        ) : (
-            <GridCardView 
-                dataset={dataset} 
-                isExpanded={isExpanded} 
-                onView={onView}
-                onDownload={onDownload}
-                onSave={onSave}
-                uniqueId={uniqueId}
-            />
-        )}
-    </Card>
-)
-
-// Close button icon component
-const CloseIcon = () => (
-    <motion.svg
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0, transition: { duration: 0.05 } }}
-        xmlns="http://www.w3.org/2000/svg"
-        width="24"
-        height="24"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="h-4 w-4"
-    >
-        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-        <path d="M18 6l-12 12" />
-        <path d="M6 6l12 12" />
-    </motion.svg>
-)
-
-// Function to fetch detailed dataset information
-// Replace this with your actual API call
-const fetchDetailedDataset = async (datasetId: number): Promise<DetailedDatasetInfo> => {
-    // This is a placeholder for your actual API call
-    // Example:
-    // return fetch(`/api/datasets/${datasetId}/details`).then(res => res.json());
-    
-    // For now, we'll simulate an API call with a delay
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            resolve({
-                id: datasetId,
-                additionalDetails: {
-                    rowCount: Math.floor(Math.random() * 100000) + 5000,
-                    columnCount: Math.floor(Math.random() * 50) + 10,
-                    createdAt: new Date().toISOString(),
-                    lastAccessed: new Date().toISOString(),
-                    format: "CSV",
-                    encoding: "UTF-8",
-                    validationStatus: "Passed",
-                }
-            });
-        }, 300); // Simulate network delay
-    });
-};
-
-// The main exported component
 export function ExpandableDatasetCard({
-    datasets,
-    onView,
-    onDownload,
-    onSave,
-    isList = false,
-}: ExpandableDatasetCardProps) {
+                                          datasets,
+                                          onView,
+                                          onDownload,
+                                          onSave,
+                                          isList = false,
+                                      }: ExpandableDatasetCardProps) {
     const [active, setActive] = useState<DatasetInfo | null>(null)
-    const [detailData, setDetailData] = useState<DetailedDatasetInfo | null>(null) // Updated type
+    const [detailData, setDetailData] = useState<DetailedDatasetInfo | null>(null)
+    const [isLoading, setIsLoading] = useState(false)
     const id = useId()
-    const ref = useRef<HTMLDivElement>(null)
+    const modalRef = useRef<HTMLDivElement>(null)
 
-    // Handle escape key to close modal
-    // Function to close the detail view
-    const closeDetailView = () => {
-        setActive(null);
-        setDetailData(null);
-    };
+    // IMPROVEMENT: `onSelect` is wrapped in `useCallback` to be stable for context
+    const handleSelect = useCallback((dataset: DatasetInfo) => {
+        setActive(dataset)
+    }, [])
 
+    // IMPROVEMENT: `closeDetailView` is wrapped in `useCallback`
+    const closeDetailView = useCallback(() => {
+        document.body.style.overflow = "auto"
+        setActive(null)
+        setDetailData(null)
+    }, [])
+
+    // IMPROVEMENT: Side effect for fetching data is in `useEffect`, not the click handler
     useEffect(() => {
-        function onKeyDown(event: KeyboardEvent) {
-            if (event.key === "Escape") {
-                closeDetailView();
+        if (!active) return
+
+        let isCancelled = false
+        const fetchData = async () => {
+            setIsLoading(true)
+            setDetailData(null) // Clear old data
+            try {
+                const data = await fetchDetailedDataset(active.id)
+                if (!isCancelled) {
+                    setDetailData(data)
+                }
+            } catch (error) {
+                console.error("Failed to fetch dataset details:", error)
+                if (!isCancelled) {
+                    // Optionally close or show an error state
+                    closeDetailView()
+                }
+            } finally {
+                if (!isCancelled) {
+                    setIsLoading(false)
+                }
             }
         }
 
-        document.body.style.overflow = active ? "hidden" : "auto"
-        window.addEventListener("keydown", onKeyDown)
-        return () => window.removeEventListener("keydown", onKeyDown)
-    }, [active])
+        fetchData()
 
-    // Handle clicks outside the modal to close it
-    useOutsideClick(ref as React.RefObject<HTMLDivElement>, closeDetailView)
+        return () => { isCancelled = true }
+    }, [active, closeDetailView])
+
+    // IMPROVEMENT: Centralized effect for body overflow and escape key
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === "Escape") closeDetailView()
+        }
+
+        if (active) {
+            document.body.style.overflow = "hidden"
+            window.addEventListener("keydown", handleKeyDown)
+        }
+
+        return () => window.removeEventListener("keydown", handleKeyDown)
+    }, [active, closeDetailView])
+
+    useOutsideClick(modalRef, closeDetailView)
+
+    // IMPROVEMENT: Context provider wraps the list
+    const contextValue = { onSave, onView, onDownload, onSelect: handleSelect, uniqueId: id }
 
     return (
-        <>
-            {/* Backdrop overlay when detail view is active */}
+        <DatasetCardContext.Provider value={contextValue}>
             <AnimatePresence>
                 {active && (
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/20 h-full w-full z-10"
+                        className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40"
                     />
                 )}
             </AnimatePresence>
 
-            {/* Detail view modal */}
             <AnimatePresence>
-                {active ? (
-                    <div className="fixed inset-0 grid place-items-center z-[100]">
-                        {/* Close button */}
+                {active && (
+                    <div className="fixed inset-0 grid place-items-center z-50">
                         <motion.button
-                            key={`button-${active.id}-${id}`}
-                            layout
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0, transition: { duration: 0.05 } }}
-                            className="flex absolute top-2 right-2 items-center justify-center bg-card text-card-foreground rounded-full h-3 w-6 shadow-md border border-border transition-colors"
+                            initial={{ opacity: 0, scale: 0.5 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.5 }}
+                            // IMPROVEMENT: Fixed button dimensions
+                            className="absolute top-4 right-4 flex items-center justify-center bg-card text-card-foreground rounded-full h-7 w-7 shadow-lg border"
                             onClick={closeDetailView}
+                            aria-label="Close detail view"
                         >
-                            <CloseIcon />
+                            <IconArrowUpRight className="h-4 w-4 rotate-180" /> {/* A close icon would be better */}
                         </motion.button>
 
-                        {/* Modal content container */}
                         <motion.div
                             layoutId={`card-${active.id}-${id}`}
-                            ref={ref}
-                            className="w-full max-w-[500px] h-full md:h-fit md:max-h-[90%] flex flex-col bg-card sm:rounded-3xl overflow-hidden shadow-xl border border-border"
+                            ref={modalRef}
+                            className="w-full max-w-2xl h-full md:h-auto md:max-h-[90vh] flex flex-col bg-card sm:rounded-2xl shadow-2xl border"
                         >
-                            <DatasetCard 
-                                dataset={active}
-                                isExpanded={true}
-                                isListView={false}
-                                uniqueId={id}
-                                onView={onView}
-                                onDownload={onDownload}
-                                onSave={onSave}
-                            />
-                            
-                            {/* Display additional data if available */}
-                            {detailData && (
-                                <div className="p-4 border-t border-muted/30 overflow-auto">
-                                    <h3 className="text-sm font-medium mb-2">Additional Details</h3>
-                                    <div className="grid grid-cols-2 gap-4 text-xs">
-                                        {detailData.additionalDetails && Object.entries(detailData.additionalDetails).map(([key, value]) => (
-                                            <div key={key} className="flex flex-col">
-                                                <span className="text-muted-foreground capitalize">
-                                                    {key.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase())}
-                                                </span>
-                                                <span className="font-medium">{String(value)}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
+                            <ExpandedCardView dataset={active} detailData={detailData} />
+                            {/* Optional: Add a loading indicator */}
+                            {isLoading && <div className="absolute inset-0 bg-card/50 flex items-center justify-center"><p>Loading...</p></div>}
                         </motion.div>
                     </div>
-                ) : null}
+                )}
             </AnimatePresence>
 
-            {/* Grid or list view of datasets */}
-            {datasets.map((dataset) => {
-                // Optimize card rendering with memoization
-                const handleCardClick = () => {
-                    // First set active to provide immediate feedback
-                    setActive(dataset);
-                    
-                    // Then fetch additional data (async)
-                    fetchDetailedDataset(dataset.id)
-                        .then(detailedData => {
-                            // Store the detailed data in state
-                            setDetailData(detailedData);
-                        })
-                        .catch(error => {
-                            console.error('Error fetching detailed dataset:', error);
-                            // Clear any previous detail data on error
-                            setDetailData(null);
-                        });
-                };
-                
-                return (
-                    <motion.div
-                        layoutId={`card-${dataset.id}-${id}`}
-                        key={dataset.id}
-                        onClick={handleCardClick}
-                        className={`relative ${isList ? "w-full" : "h-full"}`}
-                    >
-                        <DatasetCard 
-                            dataset={dataset}
-                            isExpanded={false}
-                            isListView={isList}
-                            uniqueId={id}
-                            onView={onView}
-                            onDownload={onDownload}
-                            onSave={onSave}
-                        />
-                    </motion.div>
-                );
-            })}
-        </>
+            {/* List Rendering */}
+            {datasets.map((dataset) => (
+                <DatasetCard
+                    key={dataset.id}
+                    dataset={dataset}
+                    isListView={isList}
+                />
+            ))}
+        </DatasetCardContext.Provider>
     )
 }
