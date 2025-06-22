@@ -55,6 +55,7 @@ export function useMultiRoundJob(options?: UseMultiRoundJobOptions): UseMultiRou
   const [isPolling, setIsPolling] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const hasCompletedRef = useRef(false)
 
   // Start job mutation
   const startJobMutation = useMutation({
@@ -70,7 +71,9 @@ export function useMultiRoundJob(options?: UseMultiRoundJobOptions): UseMultiRou
       return api.sampling.startMultiRoundJob(datasetId, versionId, request)
     },
     onSuccess: async (data) => {
+      console.log('Start job response:', data)
       const jobIdStr = data.run_id.toString()
+      console.log('Extracted jobIdStr:', jobIdStr, 'from run_id:', data.run_id)
       setJobId(jobIdStr)
       setJobStatus(data.status)
       setError(null)
@@ -91,13 +94,16 @@ export function useMultiRoundJob(options?: UseMultiRoundJobOptions): UseMultiRou
             completed_rounds: data.completed_rounds || data.round_results.length,
             current_round: null,
             round_results: data.round_results,
-            request: {} as any, // Will be filled from actual job status
-            execution_time_ms: null,
+            request: { rounds: [] } as any, // Will be filled from actual job status
+            execution_time_ms: data.completed_at && data.started_at ? 
+              new Date(data.completed_at).getTime() - new Date(data.started_at).getTime() : 
+              1000, // Default to 1 second if not available
             error_message: data.error_message || null,
             residual_uri: data.residual_uri || null,
             residual_size: data.residual_size || null,
             residual_summary: data.residual_summary || null,
           }
+          console.log('Created jobDetails with id:', jobDetails.id, 'from jobIdStr:', jobIdStr)
           setJobData(jobDetails)
           setIsPolling(false)
           
@@ -105,12 +111,26 @@ export function useMultiRoundJob(options?: UseMultiRoundJobOptions): UseMultiRou
           try {
             const fullJobDetails = await api.sampling.getJobStatus(jobIdStr)
             setJobData(fullJobDetails)
-            onJobComplete?.(jobIdStr, fullJobDetails)
+            if (!hasCompletedRef.current) {
+              hasCompletedRef.current = true
+              console.log('Calling onJobComplete with fullJobDetails:', fullJobDetails)
+              onJobComplete?.(jobIdStr, fullJobDetails)
+            }
           } catch (err) {
             // If we can't get full details, use what we have but make sure to use raw data
             // The backend seems to be returning the data directly without proper JobStatusResponse format
             console.warn('Failed to fetch full job details, using initial response data')
-            onJobComplete?.(jobIdStr, data as any)
+            if (!hasCompletedRef.current) {
+              hasCompletedRef.current = true
+              // Ensure the data has an id field and proper structure
+              const jobDataWithId: JobStatusResponse = {
+                ...jobDetails,
+                ...data,
+                id: jobIdStr,
+                execution_time_ms: jobDetails.execution_time_ms || 1000
+              } as any
+              onJobComplete?.(jobIdStr, jobDataWithId)
+            }
           }
         } else {
           // Fetch the full job details
@@ -118,7 +138,10 @@ export function useMultiRoundJob(options?: UseMultiRoundJobOptions): UseMultiRou
             const jobDetails = await api.sampling.getJobStatus(jobIdStr)
             setJobData(jobDetails)
             setIsPolling(false)
-            onJobComplete?.(jobIdStr, jobDetails)
+            if (!hasCompletedRef.current) {
+              hasCompletedRef.current = true
+              onJobComplete?.(jobIdStr, jobDetails)
+            }
           } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Failed to fetch job details'
             setError(errorMessage)
@@ -149,47 +172,52 @@ export function useMultiRoundJob(options?: UseMultiRoundJobOptions): UseMultiRou
   // Handle polled job data
   useEffect(() => {
     if (polledJobData) {
-      setJobData(polledJobData)
+      setJobData(prevJobData => {
+        // Update progress if rounds have changed
+        if (prevJobData?.completed_rounds !== polledJobData.completed_rounds) {
+          onJobProgress?.(polledJobData.completed_rounds, polledJobData.total_rounds)
+        }
+        return polledJobData
+      })
       setJobStatus(polledJobData.status)
       
-      // Update progress
-      if (polledJobData.completed_rounds !== jobData?.completed_rounds) {
-        onJobProgress?.(polledJobData.completed_rounds, polledJobData.total_rounds)
-      }
-      
       // Check if job is complete
-      if (polledJobData.status === 'completed') {
+      if (polledJobData.status === 'completed' && !hasCompletedRef.current) {
+        hasCompletedRef.current = true
         setIsPolling(false)
         onJobComplete?.(jobId!, polledJobData)
-      } else if (polledJobData.status === 'failed') {
+      } else if (polledJobData.status === 'failed' && !hasCompletedRef.current) {
+        hasCompletedRef.current = true
         setIsPolling(false)
         setError(polledJobData.error_message || 'Job failed')
         onJobFailed?.(polledJobData.error_message || 'Job failed')
       }
     }
-  }, [polledJobData, jobData?.completed_rounds, jobId, onJobComplete, onJobFailed, onJobProgress])
+  }, [polledJobData, jobId, onJobComplete, onJobFailed, onJobProgress])
 
   // Set up polling
   useEffect(() => {
     if (isPolling && jobId && jobStatus !== 'completed' && jobStatus !== 'failed') {
-      // Initial check
-      checkJobStatus()
-      
       // Set up interval
-      pollingIntervalRef.current = setInterval(() => {
+      const intervalId = setInterval(() => {
         checkJobStatus()
       }, pollingInterval)
+      
+      pollingIntervalRef.current = intervalId
+      
+      // Initial check after a short delay to avoid immediate re-render
+      setTimeout(() => {
+        checkJobStatus()
+      }, 100)
+      
+      return () => {
+        clearInterval(intervalId)
+      }
     } else {
       // Clean up interval
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current)
         pollingIntervalRef.current = null
-      }
-    }
-    
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current)
       }
     }
   }, [isPolling, jobId, jobStatus, pollingInterval, checkJobStatus])
@@ -205,6 +233,7 @@ export function useMultiRoundJob(options?: UseMultiRoundJobOptions): UseMultiRou
     setJobStatus(null)
     setJobData(null)
     setError(null)
+    hasCompletedRef.current = false
     
     // Start the job
     await startJobMutation.mutateAsync({ datasetId, versionId, request })

@@ -13,6 +13,7 @@ export * from './use-exploration-query';
 export * from './use-sampling-query';
 export * from './use-column-metadata';
 export * from './use-multi-round-sampling';
+export * from './use-sampling-history';
 
 // Legacy hooks (kept for backwards compatibility)
 // export * from './use-auth'; // Commented out to avoid duplicate exports

@@ -402,3 +402,29 @@ export interface MergedSampleExportResponse {
   data: string;
   filename: string;
 }
+
+// Sampling Run type for history
+export interface SamplingRun {
+  id: number;
+  dataset_id: number;
+  dataset_version_id: number;
+  dataset_name: string;
+  version_number: number;
+  user_id: number;
+  user_soeid: string;
+  run_type: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  run_timestamp: string;
+  execution_time_ms: number;
+  notes: string | null;
+  output_file_id: number | null;
+  output_file_path: string | null;
+  output_file_size: number | null;
+  run_parameters: {
+    request: MultiRoundSamplingRequest;
+    job_type: string;
+    total_rounds: number;
+    completed_rounds: number;
+  };
+  output_summary: any | null;
+}

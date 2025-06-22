@@ -1,4 +1,5 @@
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { useRef, useEffect } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
@@ -17,17 +18,22 @@ import {
   PaginationItem,
 } from "@/components/ui/pagination"
 import { 
-  Download, 
   Copy, 
   Database, 
   ChevronRight,
   ChevronLeft,
   Layers,
   CheckCircle2,
-  FlaskConical
+  FlaskConical,
+  FileDown,
+  Activity,
+  Timer,
+  BarChart3,
+  Eye
 } from "lucide-react"
 import type { JobStatusResponse, MergedSampleResponse } from "@/lib/api/types"
 import { toast } from "sonner"
+import { cn } from "@/lib/utils"
 
 interface MultiRoundResultsProps {
   jobData: JobStatusResponse | null
@@ -46,6 +52,32 @@ export function MultiRoundResults({
   currentPage = 1,
   totalPages = 1
 }: MultiRoundResultsProps) {
+  const tableRef = useRef<HTMLDivElement>(null)
+
+  // Scroll to table when page changes
+  useEffect(() => {
+    // Skip on initial mount
+    if (!tableRef.current) return
+    
+    // Small delay to ensure content has rendered
+    const timeoutId = setTimeout(() => {
+      if (tableRef.current) {
+        const rect = tableRef.current.getBoundingClientRect()
+        const isInViewport = rect.top >= 0 && rect.bottom <= window.innerHeight
+        
+        // Only scroll if table is not fully visible
+        if (!isInViewport) {
+          tableRef.current.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start',
+            inline: 'nearest' 
+          })
+        }
+      }
+    }, 100)
+    
+    return () => clearTimeout(timeoutId)
+  }, [currentPage])
 
   const handleDownloadAll = async () => {
     if (!mergedSampleData) return
@@ -88,10 +120,12 @@ export function MultiRoundResults({
 
   if (!jobData) {
     return (
-      <div className="flex items-center justify-center p-16">
+      <div className="flex items-center justify-center p-20">
         <div className="text-center">
-          <FlaskConical className="w-16 h-16 mx-auto mb-4 text-muted-foreground/50" />
-          <p className="text-muted-foreground">No sampling results available</p>
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-muted/30 mb-6">
+            <FlaskConical className="w-10 h-10 text-muted-foreground" />
+          </div>
+          <p className="text-muted-foreground text-base">No sampling results available</p>
         </div>
       </div>
     )
@@ -100,26 +134,30 @@ export function MultiRoundResults({
   // Show loading state while fetching merged data
   if (!mergedSampleData && isLoading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-8">
         {/* Show job summary while loading data */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Layers className="w-5 h-5" />
-            <h3 className="text-lg font-semibold">
-              {jobData.completed_rounds} Sampling Rounds Completed
-            </h3>
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <Layers className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="text-xl font-semibold">
+                {jobData.completed_rounds} Sampling Rounds Completed
+              </h3>
+              {jobData.execution_time_ms && (
+                <p className="text-sm text-muted-foreground">
+                  Completed in {(jobData.execution_time_ms / 1000).toFixed(1)}s
+                </p>
+              )}
+            </div>
           </div>
-          {jobData.execution_time_ms && (
-            <p className="text-sm text-muted-foreground">
-              Completed in {(jobData.execution_time_ms / 1000).toFixed(1)}s
-            </p>
-          )}
         </div>
         
         {/* Loading indicator */}
-        <div className="flex items-center justify-center p-16">
+        <div className="flex items-center justify-center p-20">
           <div className="text-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent mx-auto mb-4"></div>
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-solid border-primary/30 border-r-primary mx-auto mb-4"></div>
             <p className="text-muted-foreground">Loading sample data...</p>
           </div>
         </div>
@@ -130,131 +168,194 @@ export function MultiRoundResults({
   // If we have job data but no merged sample data and not loading, show error
   if (!mergedSampleData) {
     return (
-      <div className="flex items-center justify-center p-16">
+      <div className="flex items-center justify-center p-20">
         <div className="text-center">
-          <FlaskConical className="w-16 h-16 mx-auto mb-4 text-muted-foreground/50" />
-          <p className="text-muted-foreground">Failed to load sample data. Please try refreshing.</p>
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-destructive/10 mb-6">
+            <FlaskConical className="w-10 h-10 text-destructive" />
+          </div>
+          <p className="text-muted-foreground text-base">Failed to load sample data</p>
+          <p className="text-sm text-muted-foreground mt-2">Please try refreshing the page</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6 relative">
+    <div className="space-y-8 relative">
       {isLoading && (
-        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent"></div>
+        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg">
+          <div className="flex items-center gap-3 bg-background/90 px-6 py-4 rounded-lg shadow-lg border">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary/30 border-r-primary"></div>
             <span className="text-sm font-medium">Loading data...</span>
           </div>
         </div>
       )}
-      {/* Header with download all button */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Layers className="w-5 h-5" />
-            <h3 className="text-lg font-semibold">
-              {jobData.completed_rounds} Sampling Rounds • {totalSamples.toLocaleString()} Total Samples
-            </h3>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button onClick={handleCopyToClipboard} size="sm" variant="outline">
-              <Copy className="w-4 h-4 mr-2" />
-              Copy Data
-            </Button>
-            <Button onClick={handleDownloadAll} size="sm" variant="outline">
-              <Download className="w-4 h-4 mr-2" />
-              Download Page
-            </Button>
-          </div>
-        </div>
-        {jobData.execution_time_ms && (
-          <p className="text-sm text-muted-foreground">
-            Completed in {(jobData.execution_time_ms / 1000).toFixed(1)}s
-            {totalResidual > 0 && ` • ${totalResidual.toLocaleString()} unsampled rows remaining`}
-          </p>
-        )}
-      </div>
-
-      {/* Round Summary Cards */}
-      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-        {jobData.round_results.map((round) => (
-          <Card key={round.round_number} className="overflow-hidden">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-semibold text-sm">
-                    {round.round_number}
-                  </div>
-                  <Badge variant="secondary" className="capitalize">
-                    {round.method}
-                  </Badge>
+      
+      {/* Overview Section */}
+      <div className="space-y-6">
+        {/* Summary Stats */}
+        <div className="grid gap-4 md:grid-cols-4">
+          <Card className="border-0 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-primary/20 rounded-lg">
+                  <Layers className="w-5 h-5 text-primary" />
                 </div>
-                <CheckCircle2 className="w-4 h-4 text-green-500" />
-              </div>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Samples:</span>
-                  <span className="font-medium">{round.sample_size.toLocaleString()}</span>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Total Rounds</p>
+                  <p className="text-2xl font-bold">{jobData.completed_rounds}</p>
                 </div>
-                {round.summary && (
-                  <>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Columns:</span>
-                      <span className="font-medium">{round.summary.total_columns}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Rows:</span>
-                      <span className="font-medium">{round.summary.total_rows.toLocaleString()}</span>
-                    </div>
-                  </>
-                )}
-                {round.completed_at && round.started_at && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Duration:</span>
-                    <span className="font-medium">
-                      {(
-                        (new Date(round.completed_at).getTime() - new Date(round.started_at).getTime()) / 1000
-                      ).toFixed(1)}s
-                    </span>
-                  </div>
-                )}
               </div>
             </CardContent>
           </Card>
-        ))}
+          
+          <Card className="border-0 bg-gradient-to-br from-green-500/10 via-green-500/5 to-transparent">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-green-500/20 rounded-lg">
+                  <BarChart3 className="w-5 h-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Total Samples</p>
+                  <p className="text-2xl font-bold">{totalSamples.toLocaleString()}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="border-0 bg-gradient-to-br from-blue-500/10 via-blue-500/5 to-transparent">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-blue-500/20 rounded-lg">
+                  <Timer className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Execution Time</p>
+                  <p className="text-2xl font-bold">
+                    {jobData.execution_time_ms ? `${(jobData.execution_time_ms / 1000).toFixed(1)}s` : '-'}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="border-0 bg-gradient-to-br from-orange-500/10 via-orange-500/5 to-transparent">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-orange-500/20 rounded-lg">
+                  <Database className="w-5 h-5 text-orange-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Residual Rows</p>
+                  <p className="text-2xl font-bold">{totalResidual.toLocaleString()}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Round Details */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <Activity className="w-5 h-5 text-muted-foreground" />
+              Round Details
+            </h3>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {jobData.round_results.map((round) => {
+              const duration = round.completed_at && round.started_at
+                ? (new Date(round.completed_at).getTime() - new Date(round.started_at).getTime()) / 1000
+                : null
+                
+              return (
+                <Card key={round.round_number} className="overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
+                  <CardHeader className="pb-4 bg-gradient-to-r from-muted/50 to-transparent">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-background border-2 border-primary/20 font-bold">
+                          {round.round_number}
+                        </div>
+                        <div>
+                          <CardTitle className="text-base">Round {round.round_number}</CardTitle>
+                          <Badge variant="secondary" className="capitalize mt-1">
+                            {round.method}
+                          </Badge>
+                        </div>
+                      </div>
+                      <CheckCircle2 className="w-5 h-5 text-green-500" />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <p className="text-muted-foreground mb-1">Samples</p>
+                        <p className="font-semibold">{round.sample_size.toLocaleString()}</p>
+                      </div>
+                      {duration && (
+                        <div>
+                          <p className="text-muted-foreground mb-1">Duration</p>
+                          <p className="font-semibold">{duration.toFixed(1)}s</p>
+                        </div>
+                      )}
+                    </div>
+                    {round.summary && (
+                      <div className="pt-3 border-t space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Columns:</span>
+                          <span className="font-medium">{round.summary.total_columns}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Total Rows:</span>
+                          <span className="font-medium">{round.summary.total_rows.toLocaleString()}</span>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+        </div>
       </div>
 
-      {/* Merged Sample Data Table */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Merged Sample Data</CardTitle>
-              <CardDescription>
-                Combined results from all sampling rounds
-                {mergedSampleData.pagination && (
-                  <> • Showing {mergedSampleData.data.length} of {mergedSampleData.pagination.total_items.toLocaleString()} total rows</>
-                )}
-              </CardDescription>
-            </div>
-            <Badge variant="outline">
-              {mergedSampleData.columns.length} columns
-            </Badge>
+      {/* Data Preview Section */}
+      <div ref={tableRef}>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <Eye className="w-5 h-5 text-muted-foreground" />
+              Data Preview
+            </h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              {mergedSampleData.pagination 
+                ? `Showing ${mergedSampleData.data.length} of ${mergedSampleData.pagination.total_items.toLocaleString()} total rows`
+                : `Showing ${mergedSampleData.data.length} rows`
+              }
+            </p>
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="border rounded-lg overflow-hidden">
-            <ScrollArea className="h-[500px] w-full">
+          <div className="flex items-center gap-2">
+            <Button onClick={handleCopyToClipboard} size="sm" variant="outline" className="gap-2">
+              <Copy className="w-4 h-4" />
+              Copy JSON
+            </Button>
+            <Button onClick={handleDownloadAll} size="sm" variant="outline" className="gap-2">
+              <FileDown className="w-4 h-4" />
+              Export CSV
+            </Button>
+          </div>
+        </div>
+        
+        <Card className="border-0 shadow-lg overflow-hidden">
+          <CardContent className="p-0">
+            <ScrollArea className="h-[600px] w-full">
               {mergedSampleData.data.length > 0 ? (
                 <Table>
-                  <TableHeader className="sticky top-0 bg-muted/50 z-10">
+                  <TableHeader className="sticky top-0 bg-muted/90 backdrop-blur-sm z-10 border-b">
                     <TableRow>
+                      <TableHead className="w-12 font-medium text-muted-foreground">#</TableHead>
                       {mergedSampleData.columns.map((column) => (
-                        <TableHead key={column} className="font-medium">
+                        <TableHead key={column} className="font-medium min-w-[120px]">
                           {column}
                         </TableHead>
                       ))}
@@ -262,10 +363,13 @@ export function MultiRoundResults({
                   </TableHeader>
                   <TableBody>
                     {mergedSampleData.data.map((row, idx) => (
-                      <TableRow key={idx}>
+                      <TableRow key={idx} className="hover:bg-muted/50 transition-colors">
+                        <TableCell className="text-muted-foreground text-xs font-mono">
+                          {(currentPage - 1) * 100 + idx + 1}
+                        </TableCell>
                         {mergedSampleData.columns.map((column) => (
-                          <TableCell key={column} className="text-muted-foreground">
-                            {row[column]?.toString() || '-'}
+                          <TableCell key={column} className="font-mono text-sm">
+                            {row[column]?.toString() || <span className="text-muted-foreground/50">-</span>}
                           </TableCell>
                         ))}
                       </TableRow>
@@ -273,57 +377,43 @@ export function MultiRoundResults({
                   </TableBody>
                 </Table>
               ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground p-8">
-                  <p>No data available for this page</p>
+                <div className="flex items-center justify-center h-full text-muted-foreground p-20">
+                  <div className="text-center">
+                    <Database className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
+                    <p>No data available for this page</p>
+                  </div>
                 </div>
               )}
               <ScrollBar orientation="horizontal" />
               <ScrollBar orientation="vertical" />
             </ScrollArea>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Residual Info */}
-      {jobData.residual_size && jobData.residual_size > 0 && (
-        <Card className="border-dashed">
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-orange-500/10 rounded-lg">
-                <Database className="w-5 h-5 text-orange-500" />
-              </div>
-              <div>
-                <CardTitle className="text-base">Residual Dataset</CardTitle>
-                <CardDescription>
-                  {jobData.residual_size.toLocaleString()} unsampled records
-                  {jobData.residual_summary && (
-                    <> • {jobData.residual_summary.total_columns} columns</>
-                  )}
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
+          </CardContent>
         </Card>
-      )}
+      </div>
 
-      {/* Server-side Pagination */}
+      {/* Pagination */}
       {onPageChange && totalPages > 1 && (
-        <div className="flex items-center justify-between bg-muted/30 rounded-lg p-4">
-          <p className="text-sm text-muted-foreground">
-            Page {currentPage} of {totalPages} • {mergedSampleData.data.length} samples on this page
-          </p>
+        <div className="flex items-center justify-between bg-muted/30 rounded-lg p-6 border border-border/50">
+          <div>
+            <p className="text-sm font-medium">
+              Page {currentPage} of {totalPages}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {mergedSampleData.data.length} samples on this page
+            </p>
+          </div>
           <Pagination>
             <PaginationContent>
               <PaginationItem>
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
                   onClick={() => onPageChange(currentPage - 1)}
                   disabled={currentPage === 1 || isLoading}
-                  className="gap-1 pl-2.5"
+                  className="gap-1.5"
                 >
                   <ChevronLeft className="h-4 w-4" />
-                  <span>Previous</span>
+                  Previous
                 </Button>
               </PaginationItem>
               
@@ -371,11 +461,14 @@ export function MultiRoundResults({
                   return (
                     <PaginationItem key={page}>
                       <Button
-                        variant={currentPage === page ? "outline" : "ghost"}
-                        size="icon"
+                        variant={currentPage === page ? "default" : "outline"}
+                        size="sm"
                         onClick={() => onPageChange(page as number)}
                         disabled={isLoading}
-                        className="w-9 h-9"
+                        className={cn(
+                          "w-10 h-10",
+                          currentPage === page && "pointer-events-none"
+                        )}
                       >
                         {page}
                       </Button>
@@ -386,13 +479,13 @@ export function MultiRoundResults({
               
               <PaginationItem>
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
                   onClick={() => onPageChange(currentPage + 1)}
                   disabled={currentPage === totalPages || isLoading}
-                  className="gap-1 pr-2.5"
+                  className="gap-1.5"
                 >
-                  <span>Next</span>
+                  Next
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </PaginationItem>

@@ -17,7 +17,6 @@ import {
   Play,
   Copy,
   Sparkles,
-  Database,
   Filter,
   Columns,
   Settings2,
@@ -246,7 +245,7 @@ export function MultiRoundFormV3({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Info Alert */}
       <Alert className="mb-3">
         <Info className="h-4 w-4" />
@@ -256,7 +255,7 @@ export function MultiRoundFormV3({
       </Alert>
 
       {/* Rounds List */}
-      <div className="space-y-2">
+      <div className="space-y-4">
         <AnimatePresence mode="popLayout">
           {rounds.map((round, index) => {
             const isExpanded = expandedRounds.has(round.round_number)
@@ -398,7 +397,7 @@ export function MultiRoundFormV3({
                         exit={{ height: 0 }}
                         transition={{ duration: 0.2 }}
                       >
-                        <CardContent className="p-6 space-y-6 border-t">
+                        <CardContent className="p-8 space-y-8 border-t">
                           {/* Basic Configuration */}
                           <div className="grid gap-4 md:grid-cols-2">
                             <div className="space-y-2">
