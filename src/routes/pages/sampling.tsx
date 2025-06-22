@@ -10,9 +10,10 @@ import {
   Table,
 } from "lucide-react"
 import { useDatasetVersions } from "@/hooks"
-import { useMultiRoundSampling } from "@/hooks/use-multi-round-sampling"
+import { useMultiRoundJob, useMergedSampleData } from "@/hooks/use-multi-round-job"
 import { MultiRoundFormV3 } from "@/components/sampling/multi-round-form-v3"
 import { MultiRoundResults } from "@/components/sampling/multi-round-results"
+import { JobProgress } from "@/components/sampling/job-progress"
 import { 
   StepWorkflowLayout,
   AnimatedStep,
@@ -20,7 +21,7 @@ import {
   DatasetSelector,
   VersionGrid
 } from "@/components/shared"
-import type { Dataset, DatasetVersion, MultiRoundSamplingRequest, MultiRoundSamplingResponse } from "@/lib/api/types"
+import type { Dataset, DatasetVersion, MultiRoundSamplingRequest, JobStatusResponse } from "@/lib/api/types"
 import { useQuery } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { useDatasetContext } from "@/contexts/DatasetContext"
@@ -44,21 +45,18 @@ export function SamplingPage() {
   }, [selectedDataset, selectedVersion])
   
   const [currentStep, setCurrentStep] = useState(getInitialStep())
-  const [samplingResponse, setSamplingResponse] = useState<MultiRoundSamplingResponse | null>(null)
-  const [lastRequest, setLastRequest] = useState<MultiRoundSamplingRequest | null>(null)
+  const [completedJobData, setCompletedJobData] = useState<JobStatusResponse | null>(null)
   
   // Pagination state for server-side pagination
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize] = useState(100) // Fixed page size for consistency
-  const [totalPages, setTotalPages] = useState(1)
-  const [isLoadingPage, setIsLoadingPage] = useState(false)
   
   // Update step when global selections change (e.g., from another tab)
   useEffect(() => {
     const newStep = getInitialStep()
     setCurrentStep(newStep)
-    // Clear sampling response when dataset/version changes
-    setSamplingResponse(null)
+    // Clear job data when dataset/version changes
+    setCompletedJobData(null)
   }, [selectedDataset, selectedVersion, getInitialStep])
 
   // Query hooks
@@ -67,46 +65,65 @@ export function SamplingPage() {
     { enabled: !!selectedDataset }
   )
   
-  // Use the multi-round sampling hook
-  const samplingMutation = useMultiRoundSampling({
-    onSuccess: (data) => {
-      if (!data) {
-        setSamplingResponse(null)
-        setCurrentStep(4)
-        toast.warning("Sampling completed but no results were returned")
-      } else {
-        setSamplingResponse(data)
-        setCurrentStep(4)
-        // Calculate total pages based on first round's pagination info
-        if (data.rounds?.[0]?.pagination) {
-          setTotalPages(data.rounds[0].pagination.total_pages)
-        }
-        const totalRows = data.rounds?.reduce((acc: number, round) => acc + (round.pagination?.total_items || round.data.length), 0) || 0
-        toast.success(`Multi-round sampling completed! ${data.rounds?.length || 0} rounds processed with ${totalRows.toLocaleString()} total rows.`)
-      }
+  // Use the async multi-round job hook
+  const {
+    startJob,
+    cancelPolling,
+    jobId,
+    jobStatus,
+    jobData,
+    isPolling,
+    completedRounds,
+    totalRounds,
+    currentRound,
+    executionTime,
+    error: jobError,
+    isStartingJob,
+    isCheckingStatus
+  } = useMultiRoundJob({
+    onJobComplete: (jobId, data) => {
+      console.log('Job completed with job ID:', jobId)
+      console.log('Job completed with data:', data)
+      console.log('Data has id field?:', 'id' in data)
+      console.log('Data id value:', data.id)
+      setCompletedJobData(data)
+      setCurrentStep(4)
+      const totalSamples = data.round_results.reduce((sum, round) => sum + round.sample_size, 0)
+      toast.success(`Multi-round sampling completed! ${data.completed_rounds} rounds processed with ${totalSamples.toLocaleString()} total samples.`)
     },
-    onError: (error) => {
-      toast.error(`Sampling failed: ${error.message}`)
+    onJobFailed: (error) => {
+      toast.error(`Sampling job failed: ${error}`)
     },
+    onJobProgress: () => {
+      // Progress updates are handled by the UI reactively
+    },
+    pollingInterval: 2000 // Check every 2 seconds
   })
   
+  // Extract job ID from completed job data
+  const extractedJobId = completedJobData ? 
+    (completedJobData.id || (completedJobData as any).run_id ? String((completedJobData as any).run_id) : null) : 
+    null;
+  
+  // Fetch merged sample data when job is complete
+  console.log('Completed job data state:', completedJobData)
+  console.log('Job ID for merged data:', extractedJobId)
+  console.log('Job status:', completedJobData?.status)
+  
+  const { data: mergedSampleData, isLoading: isLoadingMergedData, error: mergedDataError } = useMergedSampleData(
+    extractedJobId,
+    currentPage,
+    pageSize,
+    !!completedJobData && completedJobData.status === 'completed'
+  )
+  
+  console.log('Merged sample data result:', { mergedSampleData, isLoadingMergedData, error: mergedDataError })
+  
+  
   // Handle page change for server-side pagination
-  const handlePageChange = async (newPage: number) => {
-    if (!selectedDataset || !selectedVersion || !lastRequest) return
-    
-    setIsLoadingPage(true)
+  const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage)
-    
-    try {
-      const data = await fetchPage(newPage)
-      if (data) {
-        setSamplingResponse(data)
-      }
-    } catch {
-      toast.error("Failed to load page")
-    } finally {
-      setIsLoadingPage(false)
-    }
+    // The useMergedSampleData hook will automatically refetch with the new page
   }
 
   // Fetch dataset columns for the form
@@ -132,61 +149,30 @@ export function SamplingPage() {
   const handleDatasetSelect = (dataset: Dataset) => {
     setSelectedDataset(dataset)
     // Version is automatically cleared by context when dataset changes
-    setSamplingResponse(null)
+    setCompletedJobData(null)
     setTimeout(() => setCurrentStep(2), 300)
   }
 
   const handleVersionSelect = (version: DatasetVersion) => {
     setSelectedVersion(version)
-    setSamplingResponse(null)
+    setCompletedJobData(null)
     setTimeout(() => setCurrentStep(3), 300)
   }
 
-  const handleMultiRoundSubmit = (request: MultiRoundSamplingRequest) => {
+  const handleMultiRoundSubmit = async (request: MultiRoundSamplingRequest) => {
     if (!selectedDataset || !selectedVersion) return
     
-    setLastRequest(request)
     setCurrentPage(1) // Reset to first page
-    samplingMutation.mutate({
-      datasetId: selectedDataset.id,
-      versionId: selectedVersion.id,
-      request: request,
-      page: 1,
-      pageSize: pageSize
-    })
-  }
-
-  // Function to fetch a specific page of data
-  const fetchPage = async (page: number) => {
-    if (!selectedDataset || !selectedVersion || !lastRequest) return null
     
     try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/sampling/${selectedDataset.id}/${selectedVersion.id}/multi-round/execute?page=${page}&page_size=${pageSize}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Authorization': `Bearer ${JSON.parse(localStorage.getItem('auth_tokens') || '{}').access_token}`
-          },
-          body: JSON.stringify(lastRequest)
-        }
-      )
-      
-      if (response.ok) {
-        const data = await response.json()
-        // Update total pages if pagination info is available
-        if (data.rounds?.[0]?.pagination) {
-          setTotalPages(data.rounds[0].pagination.total_pages)
-        }
-        return data
-      }
+      await startJob(selectedDataset.id, selectedVersion.id, request)
     } catch {
-      console.error(`Failed to fetch page ${page}`)
+      toast.error('Failed to start sampling job')
     }
-    return null
   }
+
+  // Calculate job progress percentage
+  const progressPercentage = totalRounds > 0 ? Math.round((completedRounds / totalRounds) * 100) : 0
 
 
   // Download and copy handlers - removed as MultiRoundResults handles internally
@@ -197,7 +183,8 @@ export function SamplingPage() {
     setCurrentStep(1)
     setSelectedDataset(null)
     setSelectedVersion(null)
-    setSamplingResponse(null)
+    setCompletedJobData(null)
+    cancelPolling() // Stop any ongoing polling
   }
 
   const shouldShowStep = (stepId: number) => {
@@ -213,9 +200,11 @@ export function SamplingPage() {
       onReset={resetFlow}
       resetLabel="New Sample"
       loadingOverlay={{
-        isLoading: samplingMutation.isPending,
-        title: "Sampling Data",
-        description: "Executing multi-round sampling..."
+        isLoading: isStartingJob || (isPolling && jobStatus === 'running'),
+        title: jobStatus === 'running' ? "Processing Sampling Job" : "Starting Sampling Job",
+        description: jobStatus === 'running' 
+          ? `Round ${currentRound || 0} of ${totalRounds} (${progressPercentage}% complete)`
+          : "Initializing multi-round sampling..."
       }}
     >
       {/* Step 1: Select Dataset */}
@@ -255,19 +244,19 @@ export function SamplingPage() {
                         versionId={selectedVersion?.id || 0}
                         datasetColumns={datasetInfo?.columns || []}
                         onSubmit={handleMultiRoundSubmit}
-                        isLoading={samplingMutation.isPending}
+                        isLoading={isStartingJob}
                       />
                   </StepCard>
                 </AnimatedStep>
 
       {/* Step 4: View Results */}
-      <AnimatedStep show={shouldShowStep(4) && !!samplingResponse} delay={0.3}>
+      <AnimatedStep show={shouldShowStep(4) && !!completedJobData} delay={0.3}>
         <StepCard
           isActive={true}
           isCompleted={false}
           icon={Table}
           title="Multi-Round Sampling Results"
-          description={samplingResponse ? `${samplingResponse.rounds.length} rounds completed` : ""}
+          description={completedJobData ? `${completedJobData.completed_rounds} rounds completed` : ""}
           headerContent={
             <div className="flex items-center gap-2">
               <motion.div
@@ -284,19 +273,45 @@ export function SamplingPage() {
           }
         >
           <div className="pt-0 p-4 -m-6 mt-0">
+                      {mergedDataError && (
+                        <div className="mb-4 p-4 bg-destructive/10 text-destructive rounded-lg">
+                          <p className="font-medium">Error loading sample data:</p>
+                          <p className="text-sm">{mergedDataError.message}</p>
+                        </div>
+                      )}
                       <MultiRoundResults
-                        results={samplingResponse}
-                        isLoading={samplingMutation.isPending || isLoadingPage}
+                        jobData={completedJobData}
+                        mergedSampleData={mergedSampleData}
+                        isLoading={isLoadingMergedData}
                         onPageChange={handlePageChange}
                         currentPage={currentPage}
-                        totalPages={totalPages}
+                        totalPages={mergedSampleData?.pagination.total_pages || 1}
                       />
                     </div>
                   </StepCard>
                 </AnimatedStep>
 
             {/* Debug: Show message when on step 4 but no results */}
-            {currentStep === 4 && !samplingResponse && (
+            {/* Show job progress when job is running */}
+            {jobStatus && (jobStatus === 'pending' || jobStatus === 'running') && (
+              <AnimatedStep show={true} delay={0.3}>
+                <JobProgress
+                  jobId={jobId}
+                  jobStatus={jobStatus}
+                  jobData={jobData}
+                  completedRounds={completedRounds}
+                  totalRounds={totalRounds}
+                  currentRound={currentRound}
+                  executionTime={executionTime}
+                  error={jobError}
+                  isPolling={isPolling}
+                  onCancel={cancelPolling}
+                />
+              </AnimatedStep>
+            )}
+            
+            {/* Show waiting message if on step 4 but no results */}
+            {currentStep === 4 && !completedJobData && !jobStatus && (
               <Card className="border-2 border-dashed border-muted-foreground/20 bg-card/50">
                 <CardContent className="p-16 text-center">
                   <FlaskConical className="w-16 h-16 mx-auto mb-6 text-muted-foreground/50" />

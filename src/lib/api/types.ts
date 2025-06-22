@@ -319,3 +319,86 @@ export interface MultiRoundSamplingResponse {
     has_previous: boolean;
   };
 }
+
+// New async job types
+export type JobStatus = 'pending' | 'running' | 'completed' | 'failed';
+
+export interface StartJobResponse {
+  run_id: number | string;
+  status: JobStatus;
+  message: string;
+  // These fields are returned when job completes synchronously
+  total_rounds?: number;
+  completed_rounds?: number;
+  current_round?: number | null;
+  round_results?: RoundResultAsync[];
+  residual_uri?: string | null;
+  residual_size?: number | null;
+  residual_summary?: any | null;
+  error_message?: string | null;
+  created_at?: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+}
+
+export interface RoundResultAsync {
+  round_number: number;
+  method: string;
+  sample_size: number;
+  output_uri: string;
+  preview?: SamplingResult[] | null;
+  summary?: {
+    total_rows: number;
+    total_columns: number;
+    column_types?: Record<string, string>;
+    memory_usage_mb?: number;
+    null_counts?: Record<string, number>;
+  } | null;
+  started_at?: string;
+  completed_at?: string;
+}
+
+export interface JobStatusResponse {
+  id: string;
+  dataset_id: number;
+  version_id: number;
+  user_id: number;
+  status: JobStatus;
+  created_at: string;
+  total_rounds: number;
+  completed_rounds: number;
+  current_round: number | null;
+  round_results: RoundResultAsync[];
+  request: MultiRoundSamplingRequest;
+  execution_time_ms?: number | null;
+  error_message?: string | null;
+  residual_uri?: string | null;
+  residual_size?: number | null;
+  residual_summary?: {
+    total_rows: number;
+    total_columns: number;
+    [key: string]: any;
+  } | null;
+}
+
+export interface MergedSampleResponse {
+  data: SamplingResult[];
+  pagination: {
+    page: number;
+    page_size: number;
+    total_items: number;
+    total_pages: number;
+    has_next: boolean;
+    has_previous: boolean;
+  };
+  columns: string[];
+  summary?: any | null;
+  file_path: string;
+  job_id: string;
+}
+
+export interface MergedSampleExportResponse {
+  format: 'csv' | 'json';
+  data: string;
+  filename: string;
+}

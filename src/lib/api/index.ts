@@ -4,7 +4,9 @@ import type {
   Dataset, DatasetListParams, DatasetUpdate, DatasetUploadParams,
   DatasetUploadResponse, DatasetVersion, Tag, SheetDataParams,
   ExploreRequest, SamplingRequest, SamplingResult,
-  MultiRoundSamplingRequest, MultiRoundSamplingResponse
+  MultiRoundSamplingRequest, MultiRoundSamplingResponse,
+  StartJobResponse, JobStatusResponse, MergedSampleResponse,
+  MergedSampleExportResponse
 } from './types';
 
 // Re-export client and API base URL
@@ -156,5 +158,44 @@ export const api = {
           }
         }
       ),
+    
+    // New async multi-round sampling endpoints
+    startMultiRoundJob: (datasetId: number, versionId: number, request: MultiRoundSamplingRequest) =>
+      apiClient.post<StartJobResponse>(
+        `/sampling/${datasetId}/${versionId}/multi-round/run`,
+        request
+      ),
+    
+    getJobStatus: (jobId: string) =>
+      apiClient.get<JobStatusResponse>(`/sampling/multi-round/jobs/${jobId}`),
+    
+    getMergedSample: (jobId: string, params?: { 
+      page?: number; 
+      page_size?: number; 
+      columns?: string[]; 
+      export_format?: 'csv' | 'json' 
+    }) => {
+      const queryParams: Record<string, any> = {};
+      if (params?.page !== undefined) queryParams.page = params.page;
+      if (params?.page_size !== undefined) queryParams.page_size = params.page_size;
+      if (params?.export_format) queryParams.export_format = params.export_format;
+      if (params?.columns) {
+        // Handle array of columns as multiple query params
+        const searchParams = new URLSearchParams();
+        if (params.page !== undefined) searchParams.append('page', String(params.page));
+        if (params.page_size !== undefined) searchParams.append('page_size', String(params.page_size));
+        if (params.export_format) searchParams.append('export_format', params.export_format);
+        params.columns.forEach(col => searchParams.append('columns', col));
+        
+        return apiClient.get<MergedSampleResponse | MergedSampleExportResponse>(
+          `/sampling/multi-round/jobs/${jobId}/merged-sample?${searchParams.toString()}`
+        );
+      }
+      
+      return apiClient.get<MergedSampleResponse | MergedSampleExportResponse>(
+        `/sampling/multi-round/jobs/${jobId}/merged-sample`,
+        { params: queryParams }
+      );
+    },
   },
 };
