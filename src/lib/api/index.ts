@@ -6,7 +6,8 @@ import type {
   ExploreRequest, SamplingRequest, SamplingResult,
   MultiRoundSamplingRequest, MultiRoundSamplingResponse,
   StartJobResponse, JobStatusResponse, MergedSampleResponse,
-  MergedSampleExportResponse
+  MergedSampleExportResponse, SearchRequest, SearchResponse,
+  SuggestRequest, SuggestResponse
 } from './types';
 
 // Re-export client and API base URL
@@ -20,7 +21,8 @@ export type {
   ExploreRequest, SamplingRequest, SamplingResult,
   MultiRoundSamplingRequest, MultiRoundSamplingResponse,
   StartJobResponse, JobStatusResponse, MergedSampleResponse,
-  MergedSampleExportResponse
+  MergedSampleExportResponse, SearchRequest, SearchResponse,
+  SuggestRequest, SuggestResponse, SearchResult
 } from './types';
 
 
@@ -96,6 +98,47 @@ export const api = {
     
     getAllTags: () =>
       apiClient.get<Tag[]>('/datasets/tags'),
+    
+    // Search endpoints
+    search: (params?: SearchRequest) => {
+      const queryParams = new URLSearchParams();
+      
+      if (params) {
+        // Add all parameters
+        if (params.query) queryParams.append('query', params.query);
+        if (params.fuzzy) queryParams.append('fuzzy', 'true');
+        params.tags?.forEach(tag => queryParams.append('tags', tag));
+        params.file_types?.forEach(type => queryParams.append('file_types', type));
+        params.created_by?.forEach(id => queryParams.append('created_by', id.toString()));
+        if (params.created_after) queryParams.append('created_after', params.created_after);
+        if (params.created_before) queryParams.append('created_before', params.created_before);
+        if (params.updated_after) queryParams.append('updated_after', params.updated_after);
+        if (params.updated_before) queryParams.append('updated_before', params.updated_before);
+        if (params.size_min) queryParams.append('size_min', params.size_min.toString());
+        if (params.size_max) queryParams.append('size_max', params.size_max.toString());
+        if (params.versions_min) queryParams.append('versions_min', params.versions_min.toString());
+        if (params.versions_max) queryParams.append('versions_max', params.versions_max.toString());
+        if (params.search_description !== undefined) queryParams.append('search_description', params.search_description.toString());
+        if (params.search_tags !== undefined) queryParams.append('search_tags', params.search_tags.toString());
+        if (params.limit) queryParams.append('limit', params.limit.toString());
+        if (params.offset) queryParams.append('offset', params.offset.toString());
+        if (params.sort_by) queryParams.append('sort_by', params.sort_by);
+        if (params.sort_order) queryParams.append('sort_order', params.sort_order);
+        if (params.include_facets !== undefined) queryParams.append('include_facets', params.include_facets.toString());
+        params.facet_fields?.forEach(field => queryParams.append('facet_fields', field));
+      }
+      
+      return apiClient.get<SearchResponse>(`/datasets/search?${queryParams.toString()}`);
+    },
+    
+    suggest: (params: SuggestRequest) => {
+      const queryParams = new URLSearchParams();
+      queryParams.append('query', params.query);
+      if (params.limit) queryParams.append('limit', params.limit.toString());
+      params.types?.forEach(type => queryParams.append('types', type));
+      
+      return apiClient.get<SuggestResponse>(`/datasets/search/suggest?${queryParams.toString()}`);
+    },
     
     // Dataset versions
     versions: {

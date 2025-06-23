@@ -147,6 +147,113 @@ export interface DatasetListParams {
   sort_order?: string;
 }
 
+// Search types
+export interface SearchRequest {
+  // Search
+  query?: string;              // Search text
+  fuzzy?: boolean;            // Enable typo tolerance (default: false)
+  
+  // Filters
+  tags?: string[];            // Filter by tags (AND logic)
+  file_types?: string[];      // Filter by file types
+  created_by?: number[];      // Filter by creator IDs
+  
+  // Date filters (ISO format)
+  created_after?: string;     // e.g., "2024-01-01T00:00:00Z"
+  created_before?: string;
+  updated_after?: string;
+  updated_before?: string;
+  
+  // Size filters (bytes)
+  size_min?: number;
+  size_max?: number;
+  
+  // Version filters
+  versions_min?: number;
+  versions_max?: number;
+  
+  // Options
+  search_description?: boolean; // Search in descriptions (default: true)
+  search_tags?: boolean;       // Search in tags (default: true)
+  
+  // Pagination
+  limit?: number;             // 1-100 (default: 20)
+  offset?: number;            // Skip results (default: 0)
+  
+  // Sorting
+  sort_by?: 'relevance' | 'name' | 'created_at' | 'updated_at' | 'file_size' | 'version_count';
+  sort_order?: 'asc' | 'desc';
+  
+  // Facets
+  include_facets?: boolean;    // Include facet counts (default: true)
+  facet_fields?: string[];     // ['tags', 'file_types', 'created_by', 'years']
+}
+
+export interface SearchResponse {
+  results: SearchResult[];
+  total: number;
+  limit: number;
+  offset: number;
+  has_more: boolean;
+  query?: string;
+  execution_time_ms: number;
+  facets?: SearchFacets;
+  suggestions?: string[];
+}
+
+export interface SearchResult {
+  id: number;
+  name: string;
+  description?: string;
+  created_by: number;
+  created_by_name?: string;    // User's SOEID
+  created_at: string;
+  updated_at: string;
+  current_version?: number;
+  version_count: number;
+  file_type?: string;
+  file_size?: number;
+  tags: string[];
+  score: number;               // Relevance score (0-1)
+  user_permission?: string;    // 'read' | 'write' | 'admin'
+}
+
+export interface SearchFacets {
+  tags?: FacetInfo;
+  file_types?: FacetInfo;
+  created_by?: FacetInfo;
+  years?: FacetInfo;
+}
+
+export interface FacetInfo {
+  field: string;
+  label: string;
+  values: Array<{
+    value: string;
+    count: number;
+  }>;
+  total_values: number;
+}
+
+export interface SuggestRequest {
+  query: string;        // Required, min 1 character
+  limit?: number;       // 1-50 (default: 10)
+  types?: string[];     // ['dataset_name', 'tag']
+}
+
+export interface SuggestResponse {
+  suggestions: Suggestion[];
+  query: string;
+  execution_time_ms: number;
+}
+
+export interface Suggestion {
+  text: string;
+  type: 'dataset_name' | 'tag';
+  score: number;        // Relevance score
+  metadata?: any;
+}
+
 export interface SheetDataParams {
   sheet?: string;
   limit?: number;

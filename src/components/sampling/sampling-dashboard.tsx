@@ -9,7 +9,6 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { SectionCard, CollapsibleSection } from "@/components/shared"
 import { 
-  FlaskConical, 
   ChevronDown,
   Plus,
   History,
@@ -138,17 +137,6 @@ export function SamplingDashboard({
       <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-6 py-4">
           <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-primary/10 rounded-lg">
-                <FlaskConical className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-semibold tracking-tight">Data Sampling</h1>
-                <p className="text-sm text-muted-foreground">
-                  Create and manage sampling configurations for your datasets
-                </p>
-              </div>
-            </div>
             <DatasetVersionSelector
               selectedDataset={selectedDataset}
               selectedVersion={selectedVersion}

@@ -106,8 +106,12 @@ export function DatasetVersionSelector({
           
           {/* Dataset Button */}
           <Button
-            variant="ghost"
-            className="h-9 px-3 font-normal justify-start"
+            variant={selectedDataset ? "ghost" : "default"}
+            size={selectedDataset ? "default" : "sm"}
+            className={cn(
+              "transition-all",
+              selectedDataset ? "h-9 px-3 font-normal justify-start" : "h-9 px-4 font-medium shadow-sm"
+            )}
             onClick={() => setSearchModalOpen(true)}
           >
             {selectedDataset ? (
@@ -120,9 +124,9 @@ export function DatasetVersionSelector({
                 )}
               </span>
             ) : (
-              <span className="text-muted-foreground flex items-center gap-2">
-                Select dataset
-                <Search className="w-3.5 h-3.5" />
+              <span className="flex items-center gap-2">
+                <Search className="w-4 h-4" />
+                <span>Search datasets</span>
               </span>
             )}
           </Button>

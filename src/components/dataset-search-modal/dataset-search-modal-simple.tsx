@@ -17,10 +17,11 @@ import {
   Clock,
   Loader2,
   ChevronRight,
+  TrendingUp,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useDatasets } from "@/hooks"
-import type { Dataset, DatasetVersion } from "@/lib/api/types"
+import { api } from "@/lib/api"
+import type { Dataset, DatasetVersion, SearchResult, SearchResponse, SuggestResponse } from "@/lib/api/types"
 
 interface DatasetSearchModalProps {
   open: boolean
@@ -51,54 +52,114 @@ export function DatasetSearchModal({
   placeholder = "Search datasets by name, description, or tags...",
 }: DatasetSearchModalProps) {
   const [query, setQuery] = useState("")
+  const [debouncedQuery, setDebouncedQuery] = useState("")
   const [selectedIndex, setSelectedIndex] = useState(-1)
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
+  const [suggestions, setSuggestions] = useState<SuggestResponse | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [searchData, setSearchData] = useState<SearchResponse | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
+  const [showSuggestions, setShowSuggestions] = useState(false)
   
-  // Fetch all datasets
-  const { data: datasets, isLoading } = useDatasets()
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(query)
+    }, 200)
+    return () => clearTimeout(timer)
+  }, [query])
 
-  // Filter datasets based on search query
-  const filteredDatasets = useMemo(() => {
-    if (!datasets) return []
-    if (!query) return datasets
+  // Fetch search results
+  useEffect(() => {
+    const fetchSearchResults = async () => {
+      if (!open) return
+      
+      setIsLoading(true)
+      try {
+        const response = await api.datasets.search({
+          query: debouncedQuery || undefined,
+          fuzzy: true, // Enable fuzzy search by default for partial matches
+          limit: 50,
+          include_facets: true,
+          search_description: true,
+          search_tags: true,
+          sort_by: debouncedQuery ? 'relevance' : 'updated_at',
+          sort_order: 'desc'
+        })
+        setSearchData(response)
+        setSearchResults(response.results)
+      } catch (error) {
+        console.error('Search failed:', error)
+        setSearchResults([])
+      } finally {
+        setIsLoading(false)
+      }
+    }
 
-    const searchTerm = query.toLowerCase()
-    
-    return datasets.filter(dataset => {
-      // Search in name
-      if (dataset.name.toLowerCase().includes(searchTerm)) return true
-      
-      // Search in description
-      if (dataset.description?.toLowerCase().includes(searchTerm)) return true
-      
-      // Search in tags
-      if (dataset.tags?.some(tag => tag.name.toLowerCase().includes(searchTerm))) return true
-      
-      return false
-    })
-  }, [datasets, query])
+    fetchSearchResults()
+  }, [debouncedQuery, open])
 
-  // Group datasets by tags for facets
+  // Fetch suggestions for autocomplete
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      if (query.length < 2 || !showSuggestions) {
+        setSuggestions(null)
+        return
+      }
+
+      try {
+        const response = await api.datasets.suggest({
+          query,
+          limit: 5,
+          types: ['dataset_name', 'tag'] // Specify we want both types
+        })
+        setSuggestions(response)
+      } catch (error) {
+        console.error('Suggestions failed:', error)
+        setSuggestions(null)
+      }
+    }
+
+    const timer = setTimeout(fetchSuggestions, 100)
+    return () => clearTimeout(timer)
+  }, [query, showSuggestions])
+
+  // Transform search results to Dataset format for compatibility
+  const filteredDatasets: Dataset[] = searchResults.map(result => ({
+    id: result.id,
+    name: result.name,
+    description: result.description,
+    created_by: result.created_by,
+    created_at: result.created_at,
+    updated_at: result.updated_at,
+    current_version: result.current_version,
+    file_type: result.file_type,
+    file_size: result.file_size,
+    tags: result.tags.map(tag => ({ name: tag, description: null, id: 0, usage_count: null })),
+    versions: []
+  }))
+
+  // Get tag counts from facets
   const tagCounts = useMemo(() => {
-    const counts = new Map<string, number>()
-    
-    filteredDatasets.forEach(dataset => {
-      dataset.tags?.forEach(tag => {
-        counts.set(tag.name, (counts.get(tag.name) || 0) + 1)
-      })
-    })
-    
-    return Array.from(counts.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10) // Top 10 tags
-  }, [filteredDatasets])
+    if (!searchData?.facets?.tags) return []
+    return searchData.facets.tags.values
+      .slice(0, 10)
+      .map(({ value, count }) => [value, count] as [string, number])
+  }, [searchData])
 
   // Handle dataset selection
   const handleDatasetSelect = useCallback((dataset: Dataset) => {
     onDatasetSelect(dataset)
     onOpenChange(false)
   }, [onDatasetSelect, onOpenChange])
+
+  // Handle suggestion selection
+  const handleSuggestionSelect = useCallback((suggestion: string) => {
+    setQuery(suggestion)
+    setShowSuggestions(false)
+    inputRef.current?.focus()
+  }, [])
 
   // Keyboard navigation
   useEffect(() => {
@@ -119,7 +180,9 @@ export function DatasetSearchModal({
           break
         case "Enter":
           e.preventDefault()
-          if (selectedIndex >= 0 && filteredDatasets[selectedIndex]) {
+          if (showSuggestions && suggestions && selectedIndex >= 0 && suggestions.suggestions[selectedIndex]) {
+            handleSuggestionSelect(suggestions.suggestions[selectedIndex].text)
+          } else if (!showSuggestions && selectedIndex >= 0 && filteredDatasets[selectedIndex]) {
             handleDatasetSelect(filteredDatasets[selectedIndex])
           }
           break
@@ -128,28 +191,55 @@ export function DatasetSearchModal({
 
     document.addEventListener("keydown", handleKeyDown)
     return () => document.removeEventListener("keydown", handleKeyDown)
-  }, [open, onOpenChange, selectedIndex, filteredDatasets, handleDatasetSelect])
+  }, [open, onOpenChange, selectedIndex, filteredDatasets, handleDatasetSelect, showSuggestions, suggestions, handleSuggestionSelect])
 
   // Auto-focus and reset when modal opens
   useEffect(() => {
     if (open) {
       setQuery("")
+      setDebouncedQuery("")
       setSelectedIndex(-1)
+      setShowSuggestions(false)
       setTimeout(() => {
         inputRef.current?.focus()
       }, 100)
     }
   }, [open])
 
-  // Scroll selected item into view
+  // Click outside to close suggestions
   useEffect(() => {
-    if (selectedIndex >= 0 && resultsRef.current) {
-      const selectedElement = resultsRef.current.children[selectedIndex] as HTMLElement
-      if (selectedElement) {
-        selectedElement.scrollIntoView({ block: "nearest", behavior: "smooth" })
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (!target.closest('.search-input-wrapper') && !target.closest('#suggestions-list')) {
+        setShowSuggestions(false)
       }
     }
-  }, [selectedIndex])
+
+    if (showSuggestions) {
+      document.addEventListener('click', handleClickOutside)
+      return () => document.removeEventListener('click', handleClickOutside)
+    }
+  }, [showSuggestions])
+
+  // Scroll selected item into view
+  useEffect(() => {
+    if (selectedIndex >= 0) {
+      if (showSuggestions && suggestions) {
+        const suggestionsList = document.getElementById('suggestions-list')
+        if (suggestionsList) {
+          const selectedElement = suggestionsList.children[selectedIndex] as HTMLElement
+          if (selectedElement) {
+            selectedElement.scrollIntoView({ block: "nearest", behavior: "smooth" })
+          }
+        }
+      } else if (resultsRef.current) {
+        const selectedElement = resultsRef.current.children[selectedIndex] as HTMLElement
+        if (selectedElement) {
+          selectedElement.scrollIntoView({ block: "nearest", behavior: "smooth" })
+        }
+      }
+    }
+  }, [selectedIndex, showSuggestions, suggestions])
 
   const renderLoadingState = () => (
     <div className="p-12 text-center">
@@ -170,11 +260,11 @@ export function DatasetSearchModal({
         <Search className="w-10 h-10 text-slate-400" />
       </div>
       <h3 className="font-semibold text-slate-900 mb-2 text-lg">
-        {query ? "No results found" : "Ready to search"}
+        {debouncedQuery ? "No results found" : "Ready to search"}
       </h3>
       <p className="text-slate-500">
-        {query
-          ? `No datasets found matching "${query}"`
+        {debouncedQuery
+          ? `No datasets found matching "${debouncedQuery}"`
           : "Start typing to search across datasets"}
       </p>
     </div>
@@ -182,23 +272,31 @@ export function DatasetSearchModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={cn("!max-w-[55vw] w-[1000px] sm:!max-w-[55vw] p-0 gap-0 bg-white/95 backdrop-blur-xl shadow-2xl border-0 overflow-hidden ring-1 ring-white/20", className)}>
+      <DialogContent className={cn("!max-w-[55vw] w-[1000px] sm:!max-w-[55vw] !max-h-[90vh] p-0 gap-0 bg-white/95 backdrop-blur-xl shadow-2xl border-0 overflow-hidden ring-1 ring-white/20 flex flex-col", className)}>
         {/* Header */}
-        <div className="border-b border-slate-200 bg-gradient-to-r from-white to-slate-50">
-          <div className="p-8 pb-6">
-            <div className="relative">
+        <div className="border-b border-slate-200 bg-gradient-to-r from-white to-slate-50 relative">
+          <div className="p-8 pb-6 space-y-3">
+            <div className="relative search-input-wrapper">
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
               <Input
                 ref={inputRef}
                 type="text"
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
                 placeholder={placeholder}
                 className="pl-14 pr-14 py-5 text-lg border-0 focus-visible:ring-2 focus-visible:ring-blue-500 bg-white shadow-sm"
+                onFocus={() => setShowSuggestions(true)}
+                onChange={(e) => {
+                  setQuery(e.target.value)
+                  setShowSuggestions(true)
+                }}
+                autoComplete="off"
               />
               {query && (
                 <button
-                  onClick={() => setQuery("")}
+                  onClick={() => {
+                    setQuery("")
+                    setShowSuggestions(false)
+                  }}
                   className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
                 >
                   <X className="w-5 h-5" />
@@ -210,13 +308,73 @@ export function DatasetSearchModal({
                 </div>
               )}
             </div>
+            
+            {/* Suggestions Box - Now positioned below search bar */}
+            {showSuggestions && suggestions && suggestions.suggestions.length > 0 && (
+              <div className="bg-slate-50 border border-slate-200 rounded-lg overflow-hidden">
+                <div className="px-4 py-2 bg-white border-b border-slate-200">
+                  <span className="text-xs font-medium text-slate-600 uppercase tracking-wide flex items-center gap-2">
+                    <TrendingUp className="w-3 h-3" />
+                    Suggestions
+                  </span>
+                </div>
+                <div className="max-h-48 overflow-y-auto" id="suggestions-list">
+                  {suggestions.suggestions.map((suggestion, index) => (
+                    <div
+                      key={index}
+                      className={cn(
+                        "px-4 py-2.5 cursor-pointer flex items-center justify-between transition-colors",
+                        selectedIndex === index 
+                          ? "bg-blue-50 border-l-2 border-blue-500" 
+                          : "hover:bg-white border-l-2 border-transparent"
+                      )}
+                      onClick={() => handleSuggestionSelect(suggestion.text)}
+                      onMouseEnter={() => setSelectedIndex(index)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "p-1.5 rounded",
+                          suggestion.type === 'tag' 
+                            ? "bg-purple-100 text-purple-600" 
+                            : "bg-blue-100 text-blue-600"
+                        )}>
+                          {suggestion.type === 'tag' ? (
+                            <Tag className="w-3.5 h-3.5" />
+                          ) : (
+                            <Database className="w-3.5 h-3.5" />
+                          )}
+                        </div>
+                        <div>
+                          <span className="font-medium text-slate-900">{suggestion.text}</span>
+                          <span className="text-xs text-slate-500 ml-2">
+                            {suggestion.type === 'tag' ? 'Tag' : 'Dataset'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 text-sm">
+                        <span className={cn(
+                          "font-medium",
+                          suggestion.score > 0.8 ? "text-green-600" : 
+                          suggestion.score > 0.6 ? "text-yellow-600" : "text-slate-500"
+                        )}>
+                          {Math.round(suggestion.score * 100)}%
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 text-xs text-slate-500">
+                  Press <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-xs">↑↓</kbd> to navigate • <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-xs">Enter</kbd> to select
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Search Summary & Tag Cloud */}
-          <div className="px-8 pb-6 space-y-4">
-            {query && (
-              <div className="text-base text-slate-600">
-                Found <span className="font-semibold text-slate-900">{filteredDatasets.length}</span> dataset{filteredDatasets.length !== 1 ? 's' : ''} matching <span className="font-medium">"{query}"</span>
+          <div className="px-8 pb-4 space-y-3">
+            {debouncedQuery && searchData && (
+              <div className="text-sm text-slate-600">
+                Found <span className="font-semibold text-slate-900">{searchData.total}</span> dataset{searchData.total !== 1 ? 's' : ''} matching <span className="font-medium">"{debouncedQuery}"</span>
               </div>
             )}
 
@@ -248,7 +406,7 @@ export function DatasetSearchModal({
         </div>
 
         {/* Results */}
-        <div className="max-h-[52vh] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100" ref={resultsRef}>
+        <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100" ref={resultsRef}>
           {isLoading ? (
             renderLoadingState()
           ) : filteredDatasets.length === 0 ? (
@@ -293,11 +451,11 @@ export function DatasetSearchModal({
                         <div className="flex items-start justify-between gap-4 mb-3">
                           <div className="flex-1 space-y-2">
                             <h3 className="font-semibold text-slate-900 text-xl leading-tight" title={dataset.name}>
-                              {query ? highlightText(dataset.name, query) : dataset.name}
+                              {debouncedQuery ? highlightText(dataset.name, debouncedQuery) : dataset.name}
                             </h3>
                             {dataset.description && (
                               <p className="text-slate-600 text-base leading-relaxed" title={dataset.description}>
-                                {query ? highlightText(dataset.description, query) : dataset.description}
+                                {debouncedQuery ? highlightText(dataset.description, debouncedQuery) : dataset.description}
                               </p>
                             )}
                           </div>
@@ -313,7 +471,7 @@ export function DatasetSearchModal({
                           <div className="flex items-center gap-6 text-sm text-slate-500">
                             <span className="flex items-center gap-1.5 hover:text-slate-700 transition-colors">
                               <User className="w-4 h-4" />
-                              User {dataset.created_by}
+                              {searchResults.find(r => r.id === dataset.id)?.created_by_name || `User ${dataset.created_by}`}
                             </span>
                             <span className="flex items-center gap-1.5 hover:text-slate-700 transition-colors">
                               <Calendar className="w-4 h-4" />
@@ -342,7 +500,7 @@ export function DatasetSearchModal({
                                   variant="outline"
                                   className="text-sm px-3 py-1 bg-white/90 border-slate-200/80 hover:bg-slate-50/90 hover:border-slate-300 transition-colors cursor-default backdrop-blur-sm"
                                 >
-                                  {query ? highlightText(tag.name, query) : tag.name}
+                                  {debouncedQuery ? highlightText(tag.name, debouncedQuery) : tag.name}
                                 </Badge>
                               ))}
                             </div>
