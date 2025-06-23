@@ -1,22 +1,22 @@
 import { useState, useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { DatasetVersionSelector } from "./dataset-version-selector"
+import { DatasetVersionSelector } from "@/components/shared"
 import { SamplingHistoryTable } from "./sampling-history-table"
 import { MultiRoundFormV3 } from "./multi-round-form-v3"
 import { InlineJobResults } from "./inline-job-results"
 import { JobProgress } from "./job-progress"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
+import { SectionCard, CollapsibleSection } from "@/components/shared"
 import { 
   FlaskConical, 
   ChevronDown,
-  ChevronUp,
   Plus,
   History,
   Zap,
-  CheckCircle2
+  CheckCircle2,
+  Database,
+  Sparkles
 } from "lucide-react"
 import { useDatasetContext } from "@/contexts/DatasetContext"
 import { useMultiRoundJob } from "@/hooks/use-multi-round-job"
@@ -133,148 +133,111 @@ export function SamplingDashboard({
   const showEmptyState = !selectedDataset || !selectedVersion
   
   return (
-    <div className={cn("min-h-screen bg-background", className)}>
-      {/* Dataset & Version Selector */}
-      <div className="border-b">
-        <div className="container mx-auto px-4 py-4">
-          <DatasetVersionSelector
-            selectedDataset={selectedDataset}
-            selectedVersion={selectedVersion}
-            onDatasetChange={setSelectedDataset}
-            onVersionChange={setSelectedVersion}
-          />
+    <div className={cn("w-full", className)}>
+      {/* Header Section with Dataset Selector */}
+      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container mx-auto px-6 py-4">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-primary/10 rounded-lg">
+                <FlaskConical className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-semibold tracking-tight">Data Sampling</h1>
+                <p className="text-sm text-muted-foreground">
+                  Create and manage sampling configurations for your datasets
+                </p>
+              </div>
+            </div>
+            <DatasetVersionSelector
+              selectedDataset={selectedDataset}
+              selectedVersion={selectedVersion}
+              onDatasetChange={setSelectedDataset}
+              onVersionChange={setSelectedVersion}
+            />
+          </div>
         </div>
       </div>
       
-      {/* Main Content */}
-      <div className="container mx-auto px-4 py-8">
+      {/* Main Content Area */}
+      <div className="container mx-auto px-6 py-6">
         {showEmptyState ? (
-          /* Empty State */
-          <Card className="border-dashed border-2 bg-muted/5">
-            <CardContent className="p-20 text-center">
-              <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-muted/30 mb-8">
-                <FlaskConical className="w-10 h-10 text-muted-foreground" />
-              </div>
-              <h3 className="text-2xl font-semibold mb-4">Get Started with Sampling</h3>
-              <p className="text-muted-foreground text-base max-w-lg mx-auto leading-relaxed">
-                Select a dataset and version above to start creating samples or view sampling history.
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-8">
-            {/* Sampling History Section */}
-            <Card className="shadow-sm">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-muted rounded-lg">
-                      <History className="w-5 h-5 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-xl">Sampling History</CardTitle>
-                      <CardDescription className="mt-1">
-                        View and manage all sampling runs for this dataset
-                      </CardDescription>
-                    </div>
+          /* Enhanced Empty State */
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+          >
+            <Card className="border-dashed border-2 shadow-none">
+              <CardContent className="flex flex-col items-center justify-center py-24 px-8 text-center">
+                <div className="relative mb-8">
+                  <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full" />
+                  <div className="relative inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10">
+                    <Database className="w-10 h-10 text-primary" />
                   </div>
-                  <Button
-                    onClick={() => {
-                      setIsCreateExpanded(true)
-                      // Scroll to create section after a short delay
-                      setTimeout(() => {
-                        const createSection = document.getElementById('create-sample-section')
-                        createSection?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                      }, 100)
-                    }}
-                    size="sm"
-                    className="gap-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    New Sample
-                  </Button>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <SamplingHistoryTable
-                  datasetId={selectedDataset.id}
-                  versionId={selectedVersion.id}
-                  onSampleSelect={(sample) => {
-                    // Handle sample selection - could expand inline or show modal
-                    console.log('Selected sample:', sample)
-                  }}
-                />
+                <h3 className="text-2xl font-semibold mb-3">No Dataset Selected</h3>
+                <p className="text-muted-foreground max-w-md mb-6 leading-relaxed">
+                  Select a dataset and version from the dropdown above to start creating samples 
+                  or view your sampling history.
+                </p>
+                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4" />
+                    <span>Multi-round sampling</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <History className="w-4 h-4" />
+                    <span>Track history</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-4 h-4" />
+                    <span>Real-time progress</span>
+                  </div>
+                </div>
               </CardContent>
             </Card>
-
-            {/* Create New Sample Section */}
-            <Card id="create-sample-section" className="shadow-sm hover:shadow-md transition-shadow">
-              <CardHeader 
-                className="cursor-pointer select-none"
-                onClick={() => setIsCreateExpanded(!isCreateExpanded)}
+          </motion.div>
+        ) : (
+          <div className="space-y-6">
+            {/* Quick Actions Bar */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Database className="w-4 h-4" />
+                <span className="font-medium">{selectedDataset.name}</span>
+                <span>/</span>
+                <span>v{selectedVersion.version_number}</span>
+              </div>
+              <Button
+                onClick={() => {
+                  setIsCreateExpanded(true)
+                  setTimeout(() => {
+                    const createSection = document.getElementById('create-sample-section')
+                    createSection?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                  }, 100)
+                }}
+                size="sm"
+                className="gap-2"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-primary/10 rounded-lg">
-                      <Plus className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-xl">Create New Sample</CardTitle>
-                      <CardDescription className="mt-1">
-                        Configure multi-round sampling with various techniques
-                      </CardDescription>
-                    </div>
-                  </div>
-                  <Button variant="ghost" size="icon" className="shrink-0">
-                    {isCreateExpanded ? (
-                      <ChevronUp className="w-5 h-5" />
-                    ) : (
-                      <ChevronDown className="w-5 h-5" />
-                    )}
-                  </Button>
-                </div>
-              </CardHeader>
-              
-              <AnimatePresence>
-                {isCreateExpanded && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <Separator />
-                    <CardContent className="pt-6">
-                      <MultiRoundFormV3
-                        datasetId={selectedDataset.id}
-                        versionId={selectedVersion.id}
-                        datasetColumns={datasetInfo?.columns || []}
-                        onSubmit={handleMultiRoundSubmit}
-                        isLoading={isStartingJob}
-                      />
-                    </CardContent>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </Card>
-            
-            {/* Active Jobs Section */}
+                <Plus className="w-4 h-4" />
+                Create Sample
+              </Button>
+            </div>
+
+            {/* Active Jobs Section - Always visible when there are active jobs */}
             {hasActiveJobs && (
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
               >
-                <Card className="shadow-sm border-primary/20">
-                  <CardHeader>
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-primary/10 rounded-lg">
-                        <Zap className="w-5 h-5 text-primary animate-pulse" />
-                      </div>
-                      <CardTitle className="text-xl">Active Jobs</CardTitle>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
+                <SectionCard
+                  icon={Zap}
+                  iconColor="text-primary"
+                  title="Active Sampling Job"
+                  description={`Processing ${totalRounds} rounds`}
+                  className="border-primary/20 shadow-lg shadow-primary/5"
+                >
                     <JobProgress
                       jobId={jobId}
                       jobStatus={jobStatus}
@@ -287,62 +250,112 @@ export function SamplingDashboard({
                       isPolling={isPolling}
                       onCancel={cancelPolling}
                     />
-                  </CardContent>
-                </Card>
+                </SectionCard>
               </motion.div>
             )}
             
-            {/* Recent Results Section */}
+            {/* Sampling History Section */}
+            <SectionCard
+              icon={History}
+              iconColor="text-muted-foreground"
+              title="Sampling History"
+              description="View and manage all sampling runs for this dataset"
+            >
+              <SamplingHistoryTable
+                datasetId={selectedDataset.id}
+                versionId={selectedVersion.id}
+                onSampleSelect={(sample) => {
+                  // Handle sample selection - could expand inline or show modal
+                  console.log('Selected sample:', sample)
+                }}
+              />
+            </SectionCard>
+
+            {/* Create New Sample Section */}
+            <CollapsibleSection
+              icon={Plus}
+              title="Create New Sample"
+              description="Configure multi-round sampling with various techniques"
+              defaultExpanded={isCreateExpanded}
+              onToggle={setIsCreateExpanded}
+            >
+              <MultiRoundFormV3
+                datasetId={selectedDataset.id}
+                versionId={selectedVersion.id}
+                datasetColumns={datasetInfo?.columns || []}
+                onSubmit={handleMultiRoundSubmit}
+                isLoading={isStartingJob}
+              />
+            </CollapsibleSection>
+
+            {/* Recent Results Section - Show if there are completed jobs */}
             {completedJobs.length > 0 && (
-              <Card className="shadow-sm">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-green-500/10 rounded-lg">
-                        <CheckCircle2 className="w-5 h-5 text-green-500" />
-                      </div>
-                      <CardTitle className="text-xl">Recent Results</CardTitle>
-                    </div>
-                    <Badge variant="secondary" className="text-xs">
-                      {completedJobs.length} completed
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
+              <SectionCard
+                icon={CheckCircle2}
+                iconColor="text-green-600"
+                title="Recent Results"
+                description="Latest completed sampling jobs"
+                badge={`${completedJobs.length} completed`}
+              >
+                <div className="space-y-3">
                     {completedJobs.map((job, index) => (
                       <motion.div
                         key={job.id || index}
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.1 }}
-                        className="border rounded-lg bg-muted/30 overflow-hidden"
+                        transition={{ delay: index * 0.05 }}
+                        className="group relative overflow-hidden rounded-lg border bg-card hover:shadow-md transition-all duration-200"
                       >
                         <div className="p-4">
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-2">
-                              <CheckCircle2 className="w-4 h-4 text-green-500" />
-                              <span className="font-medium">
-                                {job.request?.rounds?.[0]?.output_name || (job.id ? `Job ${job.id}` : 'Sampling Job')}
-                              </span>
+                          <div className="flex items-start justify-between gap-4 mb-3">
+                            <div className="flex items-start gap-3 flex-1">
+                              <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 shrink-0" />
+                              <div className="min-w-0 flex-1">
+                                <h4 className="font-medium text-sm truncate">
+                                  {job.request?.rounds?.[0]?.output_name || (job.id ? `Job ${job.id}` : 'Sampling Job')}
+                                </h4>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {job.completed_rounds} rounds • {job.execution_time_ms}ms • 
+                                  {job.round_results.reduce((sum: number, round) => sum + round.sample_size, 0).toLocaleString()} samples
+                                </p>
+                              </div>
                             </div>
-                            <span className="text-sm text-muted-foreground">
-                              {job.completed_rounds} rounds • {job.execution_time_ms}ms
-                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={() => job.id && handleToggleJobExpansion(job.id)}
+                            >
+                              <ChevronDown 
+                                className={cn(
+                                  "h-4 w-4 transition-transform duration-200",
+                                  collapsedJobIds.has(job.id) && "rotate-[-90deg]"
+                                )}
+                              />
+                            </Button>
                           </div>
-                          <InlineJobResults
-                            job={job}
-                            isExpanded={!collapsedJobIds.has(job.id)}
-                            onToggleExpand={() => job.id && handleToggleJobExpansion(job.id)}
-                          />
+                          <AnimatePresence>
+                            {!collapsedJobIds.has(job.id) && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: "auto", opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                              >
+                                <InlineJobResults
+                                  job={job}
+                                  isExpanded={true}
+                                  onToggleExpand={() => {}}
+                                />
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
                         </div>
                       </motion.div>
                     ))}
                   </div>
-                </CardContent>
-              </Card>
+              </SectionCard>
             )}
-            
           </div>
         )}
       </div>

@@ -20,6 +20,7 @@ interface DatasetVersionSelectorProps {
   onDatasetChange: (dataset: Dataset | null) => void
   onVersionChange: (version: DatasetVersion | null) => void
   className?: string
+  hideHeader?: boolean
 }
 
 export function DatasetVersionSelector({
@@ -27,7 +28,8 @@ export function DatasetVersionSelector({
   selectedVersion,
   onDatasetChange,
   onVersionChange,
-  className
+  className,
+  hideHeader = false
 }: DatasetVersionSelectorProps) {
   const [isLoadingLatest, setIsLoadingLatest] = useState(false)
   
@@ -113,16 +115,18 @@ export function DatasetVersionSelector({
   }, [versions, selectedVersion, selectedDataset, onVersionChange])
   
   return (
-    <div className={cn("bg-gradient-to-r from-primary/5 via-primary/3 to-transparent rounded-xl p-6 border border-border/50", className)}>
-      <div className="space-y-6">
+    <div className={cn(hideHeader ? "" : "bg-gradient-to-r from-primary/5 via-primary/3 to-transparent rounded-xl p-6 border border-border/50", className)}>
+      <div className={cn(hideHeader ? "" : "space-y-6")}>
         {/* Header */}
-        <div>
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <Database className="w-5 h-5 text-primary" />
-            Select Dataset & Version
-          </h2>
-          <p className="text-sm text-muted-foreground mt-1">Choose the dataset and version you want to sample from</p>
-        </div>
+        {!hideHeader && (
+          <div>
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Database className="w-5 h-5 text-primary" />
+              Select Dataset & Version
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">Choose the dataset and version you want to sample from</p>
+          </div>
+        )}
         
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Dataset Selector */}

@@ -13,6 +13,17 @@ import type {
 export { apiClient } from './core';
 export const API_BASE_URL = apiClient.getBaseURL;
 
+// Re-export types
+export type { 
+  Dataset, DatasetListParams, DatasetUpdate, DatasetUploadParams,
+  DatasetUploadResponse, DatasetVersion, Tag, SheetDataParams,
+  ExploreRequest, SamplingRequest, SamplingResult,
+  MultiRoundSamplingRequest, MultiRoundSamplingResponse,
+  StartJobResponse, JobStatusResponse, MergedSampleResponse,
+  MergedSampleExportResponse
+} from './types';
+
+
 // Define API endpoints by category
 export const api = {
   // Auth endpoints
@@ -199,3 +210,6 @@ export const api = {
     },
   },
 };
+
+// Export datasetsApi for backward compatibility
+export const datasetsApi = api.datasets;
