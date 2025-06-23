@@ -7,7 +7,7 @@ import type {
   MultiRoundSamplingRequest, MultiRoundSamplingResponse,
   StartJobResponse, JobStatusResponse, MergedSampleResponse,
   MergedSampleExportResponse, SearchRequest, SearchResponse,
-  SuggestRequest, SuggestResponse
+  SuggestRequest, SuggestResponse, DatasetStatistics
 } from './types';
 
 // Re-export client and API base URL
@@ -22,7 +22,8 @@ export type {
   MultiRoundSamplingRequest, MultiRoundSamplingResponse,
   StartJobResponse, JobStatusResponse, MergedSampleResponse,
   MergedSampleExportResponse, SearchRequest, SearchResponse,
-  SuggestRequest, SuggestResponse, SearchResult
+  SuggestRequest, SuggestResponse, SearchResult, DatasetStatistics,
+  ColumnStatistics, StatisticsMetadata
 } from './types';
 
 
@@ -159,7 +160,14 @@ export const api = {
       
       getData: (datasetId: number, versionId: number, params?: SheetDataParams) =>
         apiClient.get<{ columns: string[], data: any[][] }>(`/datasets/${datasetId}/versions/${versionId}/data`, { params }),
+      
+      getStatistics: (datasetId: number, versionId: number) =>
+        apiClient.get<DatasetStatistics>(`/datasets/${datasetId}/versions/${versionId}/statistics`),
     },
+    
+    // Get statistics for latest version
+    getStatistics: (datasetId: number) =>
+      apiClient.get<DatasetStatistics>(`/datasets/${datasetId}/statistics`),
   },
 
   // Data exploration endpoints

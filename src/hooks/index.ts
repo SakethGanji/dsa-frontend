@@ -5,6 +5,7 @@ export * from './use-auth-query';
 
 // Dataset hooks
 export * from './use-datasets-query';
+export * from './use-dataset-statistics';
 
 // Exploration hooks
 export * from './use-exploration-query';

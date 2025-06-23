@@ -6,6 +6,7 @@ import {
     useCallback,
     useContext,
     useEffect,
+    useId,
     useRef,
     useState,
 } from "react"
@@ -32,6 +33,7 @@ import {
 } from "@tabler/icons-react"
 
 // --- TYPES ---
+// Kept the same, they are well-defined.
 interface DatasetInfo {
     id: number
     name: string
@@ -50,11 +52,13 @@ interface DetailedDatasetInfo {
 }
 
 // --- CONTEXT ---
+// IMPROVEMENT: Use Context to avoid prop drilling `onView`, `onSave`, etc.
 interface DatasetCardContextType {
     onView: (id: number) => void
     onDownload: (id: number) => void
     onSave: (id: number) => void
     onSelect: (dataset: DatasetInfo) => void
+    uniqueId: string
 }
 
 const DatasetCardContext = createContext<DatasetCardContextType | null>(null)
@@ -69,6 +73,7 @@ const useDatasetCardContext = () => {
 
 // --- UTILITIES ---
 const formatDate = (dateString: string) => {
+    // Robust date parsing
     const date = new Date(dateString.includes(" ") ? dateString.replace(" ", "T") + "Z" : dateString)
     if (isNaN(date.getTime())) return "Invalid Date"
     return new Intl.DateTimeFormat("en-US", {
@@ -78,68 +83,13 @@ const formatDate = (dateString: string) => {
     }).format(date)
 }
 
-const formatDataType = (type: string): string => {
-    const typeMap: Record<string, string> = {
-        'int64': 'Integer',
-        'int32': 'Integer', 
-        'double': 'Decimal',
-        'float': 'Decimal',
-        'string': 'Text',
-        'bool': 'Boolean',
-        'date32[day]': 'Date',
-        'timestamp[ns]': 'Timestamp'
-    }
-    return typeMap[type] || type
-}
 
-const formatValue = (value: unknown, dataType: string): React.ReactNode => {
-    if (value === null || value === undefined) return <em className="text-muted-foreground">null</em>
-    
-    if (dataType.includes('date') || dataType.includes('timestamp')) {
-        return new Date(String(value)).toLocaleDateString()
-    }
-    
-    if (dataType.includes('int') || dataType.includes('double') || dataType.includes('float')) {
-        if (typeof value === 'number') {
-            return value.toLocaleString()
-        }
-    }
-    
-    if (typeof value === 'string' && value.length > 50) {
-        return (
-            <span title={value}>
-                {value.substring(0, 47)}...
-            </span>
-        )
-    }
-    
-    if (dataType === 'bool') {
-        return value ? '✓ True' : '✗ False'
-    }
-    
-    return String(value)
-}
-
-const formatRelativeTime = (dateString: string): string => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diff = now.getTime() - date.getTime()
-    
-    const minutes = Math.floor(diff / 60000)
-    const hours = Math.floor(diff / 3600000)
-    const days = Math.floor(diff / 86400000)
-    
-    if (minutes < 60) return `${minutes} minutes ago`
-    if (hours < 24) return `${hours} hours ago`
-    if (days < 30) return `${days} days ago`
-    
-    return date.toLocaleDateString()
-}
 
 // --- REUSABLE SUB-COMPONENTS (MEMOIZED) ---
 
 const ActionButtons = memo(({ datasetId }: { datasetId: number }) => {
-    const { onView, onDownload, onSave } = useDatasetCardContext()
+    // IMPROVEMENT: Gets handlers from context instead of props
+    const { onView, onDownload, onSave, uniqueId } = useDatasetCardContext()
 
     const stopPropagationAndCall = (fn: (id: number) => void) => (e: React.MouseEvent) => {
         e.stopPropagation()
@@ -147,7 +97,11 @@ const ActionButtons = memo(({ datasetId }: { datasetId: number }) => {
     }
 
     return (
-        <div className="flex gap-0.5">
+        <motion.div 
+            layoutId={`actions-${datasetId}-${uniqueId}`} 
+            className="flex gap-0.5"
+            transition={{ duration: 0.15 }}
+        >
             <Button variant="ghost" size="icon" className="h-7 w-7 rounded hover:bg-destructive/10 transition-colors" onClick={stopPropagationAndCall(onSave)} aria-label="Save">
                 <IconBookmark className="h-3.5 w-3.5 text-destructive" stroke={2} />
             </Button>
@@ -157,10 +111,11 @@ const ActionButtons = memo(({ datasetId }: { datasetId: number }) => {
             <Button variant="ghost" size="icon" className="h-7 w-7 rounded hover:bg-green-500/10 transition-colors" onClick={stopPropagationAndCall(onView)} aria-label="View">
                 <IconArrowUpRight className="h-3.5 w-3.5 text-green-600 dark:text-green-400" stroke={2} />
             </Button>
-        </div>
+        </motion.div>
     )
 })
 ActionButtons.displayName = "ActionButtons"
+
 
 const TagsDisplay = memo(({ tags, limit = 3, isExpanded = false }: { tags: string[], limit?: number, isExpanded?: boolean }) => {
     const displayTags = isExpanded ? tags : tags.slice(0, limit)
@@ -182,6 +137,7 @@ const TagsDisplay = memo(({ tags, limit = 3, isExpanded = false }: { tags: strin
 })
 TagsDisplay.displayName = "TagsDisplay"
 
+
 const TypeInfo = memo(({ fileType, fileSize }: { fileType: string, fileSize: string }) => (
     <div className="flex items-center gap-1.5 text-xs">
         <Badge variant="outline" className="text-[10px] font-medium px-1.5 py-0">
@@ -192,31 +148,37 @@ const TypeInfo = memo(({ fileType, fileSize }: { fileType: string, fileSize: str
 ))
 TypeInfo.displayName = "TypeInfo"
 
+
 // --- CARD LAYOUTS (MEMOIZED) ---
 
 const GridCardView = memo(({ dataset }: { dataset: DatasetInfo }) => {
+    const { uniqueId } = useDatasetCardContext()
     return (
         <div className="flex flex-col h-full p-2.5 gap-1.5">
             <div className="flex flex-col space-y-1">
                 <div className="flex justify-between items-start gap-2">
-                    <div className="flex-1 min-w-0">
+                    <motion.div layoutId={`title-${dataset.id}-${uniqueId}`} className="flex-1 min-w-0">
                         <CardTitle className="text-sm font-semibold leading-tight break-words">
                             {dataset.name}
                         </CardTitle>
-                    </div>
-                    <div className="flex-shrink-0">
+                    </motion.div>
+                    <motion.div layoutId={`badge-${dataset.id}-${uniqueId}`} className="flex-shrink-0">
                         <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">v{dataset.version}</Badge>
-                    </div>
+                    </motion.div>
                 </div>
-                <CardDescription className="text-xs leading-snug line-clamp-2">{dataset.description}</CardDescription>
+                <motion.div layoutId={`description-${dataset.id}-${uniqueId}`}>
+                    <CardDescription className="text-xs leading-snug line-clamp-2">{dataset.description}</CardDescription>
+                </motion.div>
             </div>
             <div className="space-y-1.5">
-                <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                <motion.div layoutId={`metadata-${dataset.id}-${uniqueId}`} className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                     <TypeInfo fileType={dataset.fileType} fileSize={dataset.fileSize} />
                     <span className="text-muted-foreground">•</span>
                     <div className="flex items-center gap-1"><IconCalendar className="h-3 w-3" stroke={1.5} /><span className="whitespace-nowrap">{formatDate(dataset.lastUpdatedTimestamp)}</span></div>
-                </div>
-                <TagsDisplay tags={dataset.tags} limit={2} />
+                </motion.div>
+                <motion.div layoutId={`tags-${dataset.id}-${uniqueId}`}>
+                    <TagsDisplay tags={dataset.tags} limit={2} />
+                </motion.div>
             </div>
             <div className="mt-auto pt-1.5 border-t border-border/20 flex justify-between items-center gap-2">
                 <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0">
@@ -230,27 +192,52 @@ const GridCardView = memo(({ dataset }: { dataset: DatasetInfo }) => {
 })
 GridCardView.displayName = "GridCardView"
 
+
 const ListCardView = memo(({ dataset }: { dataset: DatasetInfo }) => {
+    const { uniqueId } = useDatasetCardContext()
     return (
         <div className="p-2.5 md:p-3">
             <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                        <CardTitle className="text-sm font-semibold leading-tight">{dataset.name}</CardTitle>
-                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">v{dataset.version}</Badge>
+                        <motion.div 
+                            layoutId={`title-${dataset.id}-${uniqueId}`}
+                            transition={{ duration: 0.2, ease: "easeOut" }}
+                        >
+                            <CardTitle className="text-sm font-semibold leading-tight">{dataset.name}</CardTitle>
+                        </motion.div>
+                        <motion.div 
+                            layoutId={`badge-${dataset.id}-${uniqueId}`}
+                            transition={{ duration: 0.2, ease: "easeOut" }}
+                        >
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">v{dataset.version}</Badge>
+                        </motion.div>
                     </div>
-                    <CardDescription className="text-xs leading-tight mb-1.5 line-clamp-1">{dataset.description}</CardDescription>
-                    <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                    <motion.div 
+                        layoutId={`description-${dataset.id}-${uniqueId}`}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                    >
+                        <CardDescription className="text-xs leading-tight mb-1.5 line-clamp-1">{dataset.description}</CardDescription>
+                    </motion.div>
+                    <motion.div 
+                        layoutId={`metadata-${dataset.id}-${uniqueId}`} 
+                        className="flex flex-wrap items-center gap-2 text-[11px]"
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                    >
                         <TypeInfo fileType={dataset.fileType} fileSize={dataset.fileSize} />
                         <span className="text-muted-foreground">•</span>
                         <div className="flex items-center gap-0.5 text-muted-foreground"><IconCalendar className="h-2.5 w-2.5" stroke={1.5} /><span>{formatDate(dataset.lastUpdatedTimestamp)}</span></div>
                         <span className="text-muted-foreground">•</span>
                         <div className="flex items-center gap-0.5 text-muted-foreground"><IconUser className="h-2.5 w-2.5" stroke={1.5} /><span>{dataset.uploader}</span></div>
-                    </div>
+                    </motion.div>
                 </div>
-                <div className="hidden md:block">
+                <motion.div 
+                    layoutId={`tags-${dataset.id}-${uniqueId}`} 
+                    className="hidden md:block"
+                    transition={{ duration: 0.2, ease: "easeOut" }}
+                >
                     <TagsDisplay tags={dataset.tags} limit={3} />
-                </div>
+                </motion.div>
                 <ActionButtons datasetId={dataset.id} />
             </div>
         </div>
@@ -259,24 +246,28 @@ const ListCardView = memo(({ dataset }: { dataset: DatasetInfo }) => {
 ListCardView.displayName = "ListCardView"
 
 const DatasetCard = memo(({ dataset, isListView }: { dataset: DatasetInfo, isListView: boolean }) => {
-    const { onSelect } = useDatasetCardContext()
+    // IMPROVEMENT: Gets `onSelect` from context
+    const { onSelect, uniqueId } = useDatasetCardContext()
 
     return (
-        <div
+        <motion.div
+            layoutId={`card-${dataset.id}-${uniqueId}`}
             onClick={() => onSelect(dataset)}
             className={`relative h-full ${isListView ? "w-full" : "h-full"}`}
         >
             <Card className={`h-full overflow-hidden cursor-pointer hover:bg-accent/50 hover:border-primary/20 transition-all duration-200 border border-border/40 py-0 gap-0 shadow-none bg-card/50 ${isListView ? "w-full" : "flex flex-col"}`}>
                 {isListView ? <ListCardView dataset={dataset} /> : <GridCardView dataset={dataset} />}
             </Card>
-        </div>
+        </motion.div>
     )
 })
 DatasetCard.displayName = "DatasetCard"
 
+
 // --- EXPANDED MODAL VIEW ---
 
 const ExpandedCardView = ({ dataset, detailData }: { dataset: DatasetInfo, detailData: DetailedDatasetInfo | null }) => {
+    const { uniqueId } = useDatasetCardContext()
     const stats = detailData?.statistics
 
     const renderDetailItem = (label: string, value: React.ReactNode, icon?: React.ReactNode) => (
@@ -291,114 +282,90 @@ const ExpandedCardView = ({ dataset, detailData }: { dataset: DatasetInfo, detai
 
     return (
         <div className="flex flex-col h-full">
-            <motion.header 
-                className="flex flex-col sm:flex-row sm:items-start sm:justify-between p-4 sm:p-6 border-b bg-muted/30"
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, ease: "easeOut" }}
-            >
-                <div className="flex-1 min-w-0 mb-3 sm:mb-0">
-                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
-                        <CardTitle className="text-lg sm:text-xl font-bold break-words">{dataset.name}</CardTitle>
-                        <Badge variant="secondary" className="text-xs px-2 py-1">v{dataset.version}</Badge>
+            <header className="flex items-start justify-between p-6 border-b bg-muted/30">
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3 mb-2">
+                        <motion.div layoutId={`title-${dataset.id}-${uniqueId}`}><CardTitle className="text-xl font-bold">{dataset.name}</CardTitle></motion.div>
+                        <motion.div layoutId={`badge-${dataset.id}-${uniqueId}`}><Badge variant="secondary" className="text-xs px-2 py-1">v{dataset.version}</Badge></motion.div>
                     </div>
-                    <CardDescription className="text-sm">{dataset.description}</CardDescription>
+                    <motion.div layoutId={`description-${dataset.id}-${uniqueId}`}><CardDescription className="text-sm">{dataset.description}</CardDescription></motion.div>
                 </div>
-                <div className="flex-shrink-0"><ActionButtons datasetId={dataset.id} /></div>
-            </motion.header>
+                <div className="ml-4 flex-shrink-0"><ActionButtons datasetId={dataset.id} /></div>
+            </header>
 
-            <main className="flex-1 p-4 sm:p-6 space-y-4 sm:space-y-6 overflow-y-auto">
+            <main className="flex-1 p-6 space-y-6 overflow-y-auto">
                 {/* Dataset Overview */}
-                <motion.section
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: 0.1 }}
-                >
-                    <h3 className="text-sm font-semibold mb-3 sm:mb-4 flex items-center gap-2">
+                <section>
+                    <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
                         <IconDatabase className="h-4 w-4" />
                         Dataset Overview
                     </h3>
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                        {[
-                            { label: "File Size", value: stats?.size_formatted || dataset.fileSize, icon: <IconFileCode className="h-3.5 w-3.5 text-muted-foreground" /> },
-                            { label: "Total Rows", value: stats ? stats.row_count.toLocaleString() : "-", icon: <IconDatabase className="h-3.5 w-3.5 text-muted-foreground" /> },
-                            { label: "Total Columns", value: stats ? stats.column_count : "-", icon: <IconColumns className="h-3.5 w-3.5 text-muted-foreground" /> },
-                            { label: "Last Updated", value: formatDate(dataset.lastUpdatedTimestamp), icon: <IconCalendar className="h-3.5 w-3.5 text-muted-foreground" /> }
-                        ].map((item, index) => (
-                            <motion.div
-                                key={item.label}
-                                initial={{ opacity: 0, scale: 0.9 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                transition={{ duration: 0.2, delay: 0.15 + index * 0.05 }}
-                            >
-                                {renderDetailItem(item.label, item.value, item.icon)}
-                            </motion.div>
-                        ))}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {renderDetailItem(
+                            "File Size",
+                            stats?.size_formatted || dataset.fileSize,
+                            <IconFileCode className="h-3.5 w-3.5 text-muted-foreground" />
+                        )}
+                        {renderDetailItem(
+                            "Total Rows",
+                            stats ? stats.row_count.toLocaleString() : "-",
+                            <IconDatabase className="h-3.5 w-3.5 text-muted-foreground" />
+                        )}
+                        {renderDetailItem(
+                            "Total Columns",
+                            stats ? stats.column_count : "-",
+                            <IconColumns className="h-3.5 w-3.5 text-muted-foreground" />
+                        )}
+                        {renderDetailItem(
+                            "Last Updated",
+                            formatDate(dataset.lastUpdatedTimestamp),
+                            <IconCalendar className="h-3.5 w-3.5 text-muted-foreground" />
+                        )}
                     </div>
-                </motion.section>
+                </section>
 
                 {/* Statistics Metadata */}
                 {stats && (
-                    <motion.section 
-                        className="bg-muted/30 rounded-lg p-3 sm:p-4"
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3, delay: 0.2 }}
-                    >
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                    <section className="bg-muted/30 rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-2">
                             <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
                                 <IconClock className="h-3 w-3" />
                                 Statistics Information
                             </h4>
-                            <Badge variant="outline" className="text-[10px] self-start sm:self-auto">
+                            <Badge variant="outline" className="text-[10px]">
                                 {stats.metadata.profiling_method}
                             </Badge>
                         </div>
                         <div className="text-xs text-muted-foreground">
-                            <span className="block sm:inline">Computed {formatRelativeTime(stats.computed_at)}</span>
-                            <span className="hidden sm:inline"> • </span>
-                            <span className="block sm:inline">Scan time: {stats.metadata.profiling_duration_ms}ms</span>
-                            <span className="hidden sm:inline"> •</span>
-                            <span className="block sm:inline">
-                                {stats.metadata.sampling_applied 
-                                    ? `Sample size: ${stats.metadata.sample_size.toLocaleString()} rows`
-                                    : "Full dataset scan"
-                                }
-                            </span>
+                            Computed {formatRelativeTime(stats.computed_at)} • 
+                            Scan time: {stats.metadata.profiling_duration_ms}ms •
+                            {stats.metadata.sampling_applied 
+                                ? ` Sample size: ${stats.metadata.sample_size.toLocaleString()} rows`
+                                : " Full dataset scan"
+                            }
                         </div>
-                    </motion.section>
+                    </section>
                 )}
 
                 {/* Column Statistics */}
                 {stats && Object.keys(stats.columns).length > 0 && (
-                    <motion.section
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3, delay: 0.3 }}
-                    >
-                        <h3 className="text-sm font-semibold mb-3 sm:mb-4 flex items-center gap-2">
+                    <section>
+                        <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
                             <IconColumns className="h-4 w-4" />
-                            <span className="break-words">Column Information ({Object.keys(stats.columns).length} columns)</span>
+                            Column Information ({Object.keys(stats.columns).length} columns)
                         </h3>
-                        <div className="space-y-2 max-h-72 sm:max-h-96 overflow-y-auto">
-                            {Object.entries(stats.columns).map(([columnName, columnStats], index) => (
-                                <motion.div 
-                                    key={columnName} 
-                                    className="bg-muted/20 rounded-lg p-3 hover:bg-muted/30 transition-colors"
-                                    initial={{ opacity: 0, x: -20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ duration: 0.2, delay: 0.35 + index * 0.02 }}
-                                    whileHover={{ scale: 1.02 }}
-                                >
-                                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
-                                        <div className="flex-1 min-w-0">
-                                            <div className="font-medium text-sm break-words">{columnName}</div>
+                        <div className="space-y-2 max-h-96 overflow-y-auto">
+                            {Object.entries(stats.columns).map(([columnName, columnStats]) => (
+                                <div key={columnName} className="bg-muted/20 rounded-lg p-3 hover:bg-muted/30 transition-colors">
+                                    <div className="flex items-start justify-between mb-2">
+                                        <div className="flex-1">
+                                            <div className="font-medium text-sm">{columnName}</div>
                                             <Badge variant="secondary" className="text-[10px] mt-1">
                                                 {formatDataType(columnStats.data_type)}
                                             </Badge>
                                         </div>
                                         {columnStats.nullable && (
-                                            <div className="text-xs text-muted-foreground whitespace-nowrap">
+                                            <div className="text-xs text-muted-foreground">
                                                 {columnStats.null_count > 0 ? (
                                                     <span className="text-orange-600 dark:text-orange-400">
                                                         {columnStats.null_count.toLocaleString()} nulls ({columnStats.null_percentage.toFixed(2)}%)
@@ -426,43 +393,99 @@ const ExpandedCardView = ({ dataset, detailData }: { dataset: DatasetInfo, detai
                                             </div>
                                         </div>
                                     )}
-                                </motion.div>
+                                </div>
                             ))}
                         </div>
-                    </motion.section>
+                    </section>
                 )}
 
                 {/* Tags */}
-                <motion.section
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: 0.4 }}
-                >
-                    <h3 className="text-sm font-semibold mb-2 sm:mb-3">Tags</h3>
-                    <TagsDisplay tags={dataset.tags} isExpanded />
-                </motion.section>
+                <section>
+                    <h3 className="text-sm font-semibold mb-3">Tags</h3>
+                    <motion.div layoutId={`tags-${dataset.id}-${uniqueId}`}>
+                        <TagsDisplay tags={dataset.tags} isExpanded />
+                    </motion.div>
+                </section>
 
                 {/* Additional Info */}
-                <motion.section 
-                    className="pt-3 sm:pt-4 border-t"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.3, delay: 0.5 }}
-                >
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs text-muted-foreground">
+                <section className="pt-4 border-t">
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
                         <div className="flex items-center gap-1">
-                            <IconUser className="h-3 w-3 flex-shrink-0" />
+                            <IconUser className="h-3 w-3" />
                             <span>Uploaded by {dataset.uploader}</span>
                         </div>
                         <div className="flex items-center gap-1">
-                            <IconFileCode className="h-3 w-3 flex-shrink-0" />
+                            <IconFileCode className="h-3 w-3" />
                             <span>{dataset.fileType.toUpperCase()}</span>
                         </div>
                     </div>
-                </motion.section>
+                </section>
             </main>
         </div>
     )
+}
+
+// --- UTILITIES ---
+const formatDataType = (type: string): string => {
+    const typeMap: Record<string, string> = {
+        'int64': 'Integer',
+        'int32': 'Integer', 
+        'double': 'Decimal',
+        'float': 'Decimal',
+        'string': 'Text',
+        'bool': 'Boolean',
+        'date32[day]': 'Date',
+        'timestamp[ns]': 'Timestamp'
+    }
+    return typeMap[type] || type
+}
+
+const formatValue = (value: unknown, dataType: string): React.ReactNode => {
+    if (value === null || value === undefined) return <em className="text-muted-foreground">null</em>
+    
+    // Handle dates
+    if (dataType.includes('date') || dataType.includes('timestamp')) {
+        return new Date(String(value)).toLocaleDateString()
+    }
+    
+    // Handle numbers
+    if (dataType.includes('int') || dataType.includes('double') || dataType.includes('float')) {
+        if (typeof value === 'number') {
+            return value.toLocaleString()
+        }
+    }
+    
+    // Handle long strings
+    if (typeof value === 'string' && value.length > 50) {
+        return (
+            <span title={value}>
+                {value.substring(0, 47)}...
+            </span>
+        )
+    }
+    
+    // Handle booleans
+    if (dataType === 'bool') {
+        return value ? '✓ True' : '✗ False'
+    }
+    
+    return String(value)
+}
+
+const formatRelativeTime = (dateString: string): string => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diff = now.getTime() - date.getTime()
+    
+    const minutes = Math.floor(diff / 60000)
+    const hours = Math.floor(diff / 3600000)
+    const days = Math.floor(diff / 86400000)
+    
+    if (minutes < 60) return `${minutes} minutes ago`
+    if (hours < 24) return `${hours} hours ago`
+    if (days < 30) return `${days} days ago`
+    
+    return date.toLocaleDateString()
 }
 
 // --- MAIN COMPONENT ---
@@ -475,14 +498,15 @@ interface ExpandableDatasetCardProps {
 }
 
 export function ExpandableDatasetCard({
-    datasets,
-    onView,
-    onDownload,
-    onSave,
-    isList = false,
-}: ExpandableDatasetCardProps) {
+                                          datasets,
+                                          onView,
+                                          onDownload,
+                                          onSave,
+                                          isList = false,
+                                      }: ExpandableDatasetCardProps) {
     const [active, setActive] = useState<DatasetInfo | null>(null)
     const [detailData, setDetailData] = useState<DetailedDatasetInfo | null>(null)
+    const id = useId()
     const modalRef = useRef<HTMLDivElement>(null)
     
     // Fetch statistics when a dataset is selected
@@ -495,10 +519,12 @@ export function ExpandableDatasetCard({
         }
     )
 
+    // IMPROVEMENT: `onSelect` is wrapped in `useCallback` to be stable for context
     const handleSelect = useCallback((dataset: DatasetInfo) => {
         setActive(dataset)
     }, [])
 
+    // IMPROVEMENT: `closeDetailView` is wrapped in `useCallback`
     const closeDetailView = useCallback(() => {
         document.body.style.overflow = "auto"
         setActive(null)
@@ -520,7 +546,7 @@ export function ExpandableDatasetCard({
         }
     }, [active, statistics])
 
-    // Handle body overflow and escape key
+    // IMPROVEMENT: Centralized effect for body overflow and escape key
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
             if (event.key === "Escape") closeDetailView()
@@ -536,7 +562,8 @@ export function ExpandableDatasetCard({
 
     useOutsideClick(modalRef as React.RefObject<HTMLDivElement>, closeDetailView)
 
-    const contextValue = { onSave, onView, onDownload, onSelect: handleSelect }
+    // IMPROVEMENT: Context provider wraps the list
+    const contextValue = { onSave, onView, onDownload, onSelect: handleSelect, uniqueId: id }
 
     return (
         <DatasetCardContext.Provider value={contextValue}>
@@ -546,8 +573,8 @@ export function ExpandableDatasetCard({
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        transition={{ duration: 0.15 }}
-                        className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40"
+                        transition={{ duration: 0.2 }}
+                        className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40"
                     />
                 )}
             </AnimatePresence>
@@ -556,11 +583,10 @@ export function ExpandableDatasetCard({
                 {active && (
                     <div className="fixed inset-0 grid place-items-center z-50">
                         <motion.button
-                            initial={{ opacity: 0, scale: 0.9 }}
+                            initial={{ opacity: 0, scale: 0.5 }}
                             animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.9 }}
-                            transition={{ duration: 0.1 }}
-                            className="absolute top-2 right-2 sm:top-4 sm:right-4 flex items-center justify-center bg-card text-card-foreground rounded-full h-8 w-8 shadow-lg border hover:bg-accent transition-colors z-10"
+                            exit={{ opacity: 0, scale: 0.5 }}
+                            className="absolute top-4 right-4 flex items-center justify-center bg-card text-card-foreground rounded-full h-8 w-8 shadow-lg border hover:bg-accent transition-colors"
                             onClick={closeDetailView}
                             aria-label="Close detail view"
                         >
@@ -568,18 +594,20 @@ export function ExpandableDatasetCard({
                         </motion.button>
 
                         <motion.div
+                            layoutId={`card-${active.id}-${id}`}
                             ref={modalRef}
-                            className="w-full max-w-4xl h-full sm:h-auto sm:max-h-[90vh] sm:mx-4 flex flex-col bg-card sm:rounded-2xl shadow-2xl border overflow-hidden relative"
-                            initial={{ opacity: 0, scale: 0.98, y: 10 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.98, y: 10 }}
-                            transition={{ duration: 0.15, ease: "easeOut" }}
+                            className="w-full max-w-4xl h-full md:h-auto md:max-h-[90vh] flex flex-col bg-card sm:rounded-2xl shadow-2xl border overflow-hidden"
+                            transition={{ 
+                                type: "spring",
+                                damping: 30,
+                                stiffness: 300
+                            }}
                         >
                             <ExpandedCardView dataset={active} detailData={detailData} />
                             {/* Loading indicator */}
                             {isLoading && (
-                                <div className="absolute inset-0 bg-card/80 backdrop-blur-sm flex items-center justify-center sm:rounded-2xl">
-                                    <div className="text-center space-y-2 p-4">
+                                <div className="absolute inset-0 bg-card/80 backdrop-blur-sm flex items-center justify-center">
+                                    <div className="text-center space-y-2">
                                         <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
                                         <p className="text-sm text-muted-foreground">Loading statistics...</p>
                                     </div>
@@ -591,22 +619,13 @@ export function ExpandableDatasetCard({
             </AnimatePresence>
 
             {/* List Rendering */}
-            <AnimatePresence mode="popLayout">
-                {datasets.map((dataset, index) => (
-                    <motion.div
-                        key={dataset.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        transition={{ duration: 0.2, delay: index * 0.05 }}
-                    >
-                        <DatasetCard
-                            dataset={dataset}
-                            isListView={isList}
-                        />
-                    </motion.div>
-                ))}
-            </AnimatePresence>
+            {datasets.map((dataset) => (
+                <DatasetCard
+                    key={dataset.id}
+                    dataset={dataset}
+                    isListView={isList}
+                />
+            ))}
         </DatasetCardContext.Provider>
     )
 }

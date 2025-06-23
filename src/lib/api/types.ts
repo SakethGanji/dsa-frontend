@@ -254,6 +254,34 @@ export interface Suggestion {
   metadata?: any;
 }
 
+// Dataset Statistics types
+export interface DatasetStatistics {
+  version_id: number;
+  row_count: number;
+  column_count: number;
+  size_bytes: number;
+  size_formatted: string;
+  computed_at: string;
+  columns: Record<string, ColumnStatistics>;
+  metadata: StatisticsMetadata;
+}
+
+export interface ColumnStatistics {
+  data_type: string;
+  nullable: boolean;
+  null_count: number;
+  null_percentage: number;
+  min_value: unknown;
+  max_value: unknown;
+}
+
+export interface StatisticsMetadata {
+  profiling_method: 'parquet_metadata';
+  sampling_applied: boolean;
+  sample_size: number;
+  profiling_duration_ms: number;
+}
+
 export interface SheetDataParams {
   sheet?: string;
   limit?: number;
